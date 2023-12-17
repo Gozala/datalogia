@@ -1,6 +1,6 @@
 # Datalogia
 
-Library for querying in-memory facts using [datalog]
+Library for querying in-memory facts using [datalog].
 
 ## Example
 
@@ -9,7 +9,6 @@ Library for querying in-memory facts using [datalog]
 import { Schema, query } from "datalogia"
 
 export const demo = (db) => {
-
   // We will be trying to find movie titles and director names for movies
   // where Arnold Schwarzenegger casted. We do not a database schema for
   // writes but we do need schema for queries meaning we want to define
