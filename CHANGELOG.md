@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.2](https://github.com/Gozala/deductive/compare/v0.0.1...v0.0.2) (2023-12-17)
+
+
+### Bug Fixes
+
+* rename to datalogia ([#5](https://github.com/Gozala/deductive/issues/5)) ([c4aa6a4](https://github.com/Gozala/deductive/commit/c4aa6a4744e58c8eaabf09286b459ae5f7751471))
+
 ## 0.0.1 (2023-12-17)
 
 
