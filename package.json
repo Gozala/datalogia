@@ -21,12 +21,12 @@
       "default": "./src/lib.js"
     }
   },
-  "dependencies": {},
   "devDependencies": {
     "c8": "8.0.1",
     "entail": "2.1.2",
     "playwright-test": "14.0.0",
-    "prettier": "3.1.0"
+    "prettier": "3.1.0",
+    "typescript": "5.3.3"
   },
   "prettier": {
     "trailingComma": "es5",

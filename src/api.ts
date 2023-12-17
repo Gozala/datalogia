@@ -1,5 +1,3 @@
-import { Attribute, Entity, Integer } from './lib.js'
-
 /**
  * Generic reader interface that can be used to read `O` value form the
  * input `I` value. Reader may fail and error is denoted by `X` type.
