@@ -1,4 +1,6 @@
-import * as API from "./api.js"
+import * as API from './api.js'
+export * from './api.js'
+export { API }
 
 /**
  * @typedef {number} Integer
@@ -177,12 +179,12 @@ export const matchVariable = (variable, data, context) => {
  * @param {unknown|Variable<T>} x
  * @returns {x is Variable<T>}
  */
-const isVariable = x => {
+const isVariable = (x) => {
   return (
-    typeof x === "object" &&
+    typeof x === 'object' &&
     x !== null &&
-    "tryFrom" in x &&
-    typeof x.tryFrom === "function"
+    'tryFrom' in x &&
+    typeof x.tryFrom === 'function'
   )
 }
 
@@ -191,7 +193,7 @@ const isVariable = x => {
  * @param {unknown} x
  * @returns {x is Schema._}
  */
-const isBlank = x => x === Schema._
+const isBlank = (x) => x === Schema._
 
 /**
  * @template {Selector} Selection
@@ -227,7 +229,7 @@ export const queryRelations = (db, relations, context) =>
      * @returns
      */
     (contexts, relation) =>
-      contexts.flatMap(context => queryRelation(relation, db, context)),
+      contexts.flatMap((context) => queryRelation(relation, db, context)),
     [context]
   )
 
@@ -260,7 +262,7 @@ export const queryRelations = (db, relations, context) =>
  * @param {Selection} selector
  * @returns {QueryBuilder<Selection>}
  */
-export const select = selector => new QueryBuilder({ select: selector })
+export const select = (selector) => new QueryBuilder({ select: selector })
 
 /**
  * @template {Selector} Selection
@@ -286,7 +288,7 @@ export const query = (db, { select, where }) => {
     relations,
     /** @type {InferState<Selection>} */ ({})
   )
-  return contexts.map(context => materialize(select, context))
+  return contexts.map((context) => materialize(select, context))
 }
 /**
  * A query builder API which is designed to enable type inference of the query
@@ -319,7 +321,7 @@ class QueryBuilder {
  * @param {Object} object
  * @returns {{[Key in keyof Object]: [Key, Object[Key]]}[keyof Object][]}
  */
-const entries = object => /** @type {any} */ (Object.entries(object))
+const entries = (object) => /** @type {any} */ (Object.entries(object))
 
 /**
  * @template {Selector} Selection
@@ -363,7 +365,7 @@ const materialize = (select, context) =>
     )
   )
 
-const IS = Symbol.for("is")
+const IS = Symbol.for('is')
 
 /**
  * @template {Data} T
@@ -392,7 +394,7 @@ export class Schema {
        * @param {unknown} value
        * @returns {value is string}
        */
-      value => typeof value === "string"
+      (value) => typeof value === 'string'
     )
   }
   static number() {
@@ -401,7 +403,7 @@ export class Schema {
        * @param {unknown} value
        * @returns {value is number}
        */
-      value => typeof value === "number"
+      (value) => typeof value === 'number'
     )
   }
   static boolean() {
@@ -410,7 +412,7 @@ export class Schema {
        * @param {unknown} value
        * @returns {value is boolean}
        */
-      value => typeof value === "boolean"
+      (value) => typeof value === 'boolean'
     )
   }
 
@@ -420,9 +422,9 @@ export class Schema {
        * @param {unknown} _
        * @returns {_ is any}
        */
-      _ => true
+      (_) => true
     ),
-    { propertyKey: "_" }
+    { propertyKey: '_' }
   )
 }
 
@@ -472,7 +474,7 @@ class SelectedVariable {
  * @param {Attributes} attributes
  * @returns {EntityView<Attributes> & Attributes}
  */
-export const entity = attributes =>
+export const entity = (attributes) =>
   Object.assign(new EntityView(attributes), attributes)
 
 /**
@@ -487,8 +489,8 @@ class EntityView extends Schema {
    */
   static isEntity(value) {
     switch (typeof value) {
-      case "string":
-      case "number":
+      case 'string':
+      case 'number':
         return true
       default:
         return false

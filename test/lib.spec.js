@@ -1,4 +1,4 @@
-import * as DB from 'deductive'
+import * as DB from 'datalogia'
 import * as proofsDB from './proof-facts.js'
 import * as moviesDB from './movie-facts.js'
 

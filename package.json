@@ -1,5 +1,5 @@
 {
-  "name": "deductive",
+  "name": "datalogia",
   "version": "0.0.1",
   "description": "",
   "main": "index.js",
@@ -13,7 +13,15 @@
     "coverage": "c8 --reporter=html mocha test/**/*.spec.js && npm_config_yes=true npx st -d coverage -p 8080",
     "check": "tsc --build"
   },
-  "keywords": [],
+  "keywords": [
+    "datalog",
+    "query",
+    "datomic",
+    "db",
+    "database",
+    "typescript",
+    "graph"
+  ],
   "exports": {
     ".": {
       "types": "./dist/src/lib.d.ts",
