@@ -1,4 +1,4 @@
-# Deductive
+# Datalogia
 
 Library for querying in-memory facts using [datalog]
 
@@ -6,7 +6,7 @@ Library for querying in-memory facts using [datalog]
 
 
 ```js
-import { Schema, query } from "deductive"
+import { Schema, query } from "datalogia"
 
 export const demo = (db) => {
 
