@@ -1,0 +1,37 @@
+{
+  "name": "deductive",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --build",
+    "prepublishOnly": "tsc --build",
+    "test:web": "playwright-test --runner entail test/**/*.spec.js",
+    "test:node": "entail test/*.spec.js",
+    "test": "npm run test:node && npm run test:web",
+    "coverage": "c8 --reporter=html mocha test/**/*.spec.js && npm_config_yes=true npx st -d coverage -p 8080",
+    "check": "tsc --build"
+  },
+  "keywords": [],
+  "exports": {
+    ".": {
+      "types": "./dist/src/lib.d.ts",
+      "import": "./src/lib.js",
+      "default": "./src/lib.js"
+    }
+  },
+  "devDependencies": {
+    "c8": "8.0.1",
+    "entail": "2.1.2",
+    "playwright-test": "14.0.0",
+    "prettier": "3.1.0",
+    "typescript": "5.3.3"
+  },
+  "prettier": {
+    "trailingComma": "es5",
+    "tabWidth": 2,
+    "semi": false,
+    "singleQuote": true
+  }
+}
