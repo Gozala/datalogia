@@ -141,5 +141,28 @@ export const testDB = {
         },
       ]
     )
+
+    assert.deepEqual(
+      DB.query(moviesDB, {
+        select: {
+          director: director['person/name'],
+          movie: movie['movie/title'],
+        },
+        where: [
+          actor['person/name'].is('Arnold Schwarzenegger'),
+          director['person/name'].not('James Cameron'),
+          movie['movie/cast'].is(actor),
+          movie['movie/director'].is(director),
+        ],
+      }),
+      [
+        { director: 'John McTiernan', movie: 'Predator' },
+        { director: 'Mark L. Lester', movie: 'Commando' },
+        {
+          director: 'Jonathan Mostow',
+          movie: 'Terminator 3: Rise of the Machines',
+        },
+      ]
+    )
   },
 }

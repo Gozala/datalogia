@@ -537,7 +537,8 @@ class DataAttribute {
   }
 
   /**
-   * @param {number} value
+   * @param {T} value
+   * @returns {Relation}
    */
   not(value) {
     return [
