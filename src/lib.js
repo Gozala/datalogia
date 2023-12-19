@@ -134,13 +134,17 @@ export const matchRelation = (relation, fact, context) => {
  * @param {InferState<Selection>} context
  */
 export const matchTerm = (term, data, context) =>
-  // If term is a variable then we attempt to match a data against it
-  // otherwise we compare data against the constant term.
-  isVariable(term)
-    ? matchVariable(term, data, context)
-    : isBlank(term)
-      ? context
-      : matchConstant(term, data, context)
+  // If we match against `_` we succeed and do not capture any bindings as we
+  // do not want to unify against all other uses of `_`.
+  isBlank(term)
+    ? context
+    : // If term is a variable then we attempt to match a data against it and
+      // unify with previously matched binding.
+
+      isVariable(term)
+      ? matchVariable(term, data, context)
+      : // Otherwise we match the constant
+        matchConstant(term, data, context)
 
 /**
  * @template Context
@@ -174,7 +178,7 @@ export const matchVariable = (variable, data, context) => {
     return matchTerm(context[key], data, context)
   } else {
     const result = variable.tryFrom(data)
-    return result.ok ? { ...context, [key]: result.ok } : null
+    return result.error ? null : { ...context, [key]: result.ok }
   }
 }
 
@@ -208,8 +212,8 @@ const isBlank = (x) => x === Schema._
  */
 const queryRelation = (relation, { facts }, context) => {
   const matches = []
-  for (const triple of facts) {
-    const match = matchRelation(relation, triple, context)
+  for (const fact of facts) {
+    const match = matchRelation(relation, fact, context)
     if (match) {
       matches.push(match)
     }
@@ -279,11 +283,18 @@ export const select = (selector) => new QueryBuilder({ select: selector })
 export const query = (db, { select, where }) => {
   /** @type {Relation[]} */
   const relations = []
+
   for (const relation of where) {
     if (Array.isArray(relation)) {
       relations.push(relation)
     } else {
       relations.push(...relation.where)
+    }
+  }
+
+  for (const attribute of Object.values(select)) {
+    if (attribute instanceof DataAttribute) {
+      relations.push(attribute._)
     }
   }
 
@@ -378,16 +389,26 @@ const PROPERTY_KEY = Symbol.for('propertyKey')
  */
 export class Schema {
   /**
-   * @param {(value: Data) => value is T} is
-   * @param {PropertyKey} [key]
+   * @param {object} model
+   * @param {(value: Data) => value is T} model.is
+   * @param {PropertyKey} [model.key]
    */
-  constructor(is, key) {
+  constructor({ is, key }) {
     this[IS] = is
     this[PROPERTY_KEY] = key
   }
 
   [Symbol.toPrimitive]() {
     return SelectedVariable.getPropertyKey(this)
+  }
+
+  /**
+   * @param {object} model
+   * @param {Variable<Entity>|Entity} model.entity
+   * @param {Variable<Attribute>|Attribute} model.attribute
+   */
+  bind(model) {
+    return new DataAttribute({ ...model, schema: this })
   }
 
   /**
@@ -401,41 +422,42 @@ export class Schema {
   }
 
   static string() {
-    return new Schema(
+    return new StringSchema({
       /**
        * @param {unknown} value
        * @returns {value is string}
        */
-      (value) => typeof value === 'string'
-    )
+      is: (value) => typeof value === 'string',
+    })
   }
   static number() {
-    return new NumberSchema(
+    return new NumberSchema({
       /**
        * @param {unknown} value
        * @returns {value is number}
        */
-      (value) => typeof value === 'number'
-    )
+      is: (value) => typeof value === 'number',
+    })
   }
 
   static boolean() {
-    return new Schema(
+    return new this({
       /**
        * @param {unknown} value
        * @returns {value is boolean}
        */
-      (value) => typeof value === 'boolean'
-    )
+      is: (value) => typeof value === 'boolean',
+    })
   }
 
-  static _ = new Schema(
+  static _ = new Schema({
     /**
      * @param {unknown} _
      * @returns {_ is any}
      */
-    (_) => true
-  )
+    is: (_) => true,
+    key: '_',
+  })
 }
 
 /**
@@ -445,103 +467,195 @@ export class Schema {
  */
 class NumberSchema extends Schema {
   /**
-   * @param {number} value
+   * @param {object} model
+   * @param {Variable<Entity>|Entity} model.entity
+   * @param {Variable<Attribute>|Attribute} model.attribute
+   * @returns {NumberAttribute<T>}
    */
-  greaterThan(value) {
-    return new Schema(
-      /**
-       * @param {Data} x
-       * @returns {x is number}
-       */
-      (x) => /** @type {number} */ (x) > value,
-      SelectedVariable.getPropertyKey(this)
-    )
-  }
-
-  /**
-   * @param {number} value
-   */
-  lessThan(value) {
-    return new NumberSchema(
-      /**
-       * @param {Data} x
-       * @returns {x is number}
-       */
-      (x) => /** @type {number} */ (x) < value,
-      SelectedVariable.getPropertyKey(this)
-    )
-  }
-  /**
-   * @param {number} value
-   */
-  greaterOrEqualThan(value) {
-    return new NumberSchema(
-      /**
-       * @param {Data} x
-       * @returns {x is number}
-       */
-      (x) => /** @type {number} */ (x) >= value,
-      SelectedVariable.getPropertyKey(this)
-    )
-  }
-  /**
-   * @param {number} value
-   */
-  lessOrEqualThan(value) {
-    return new NumberSchema(
-      /**
-       * @param {Data} x
-       * @returns {x is number}
-       */
-      (x) => /** @type {number} */ (x) <= value,
-      SelectedVariable.getPropertyKey(this)
-    )
-  }
-  /**
-   * @param {number} value
-   */
-  notEqual(value) {
-    return new NumberSchema(
-      /**
-       * @param {Data} x
-       * @returns {x is number}
-       */
-      (x) => /** @type {number} */ (x) !== value,
-      SelectedVariable.getPropertyKey(this)
-    )
-  }
-
-  /**
-   * @typedef {API.Variant<{
-   *  '>': number
-   *  '<': number
-   *  '>=': number
-   *  '<=': number
-   *  '!=': number
-   * }>} ArithmeticPredicate
-   * @param {ArithmeticPredicate} pattern
-   */
-  match(pattern) {
-    const [operator, value] =
-      /** @type {[keyof ArithmeticPredicate, number]} */
-      (Object.entries(pattern)[0])
-
-    switch (operator) {
-      case '>':
-        return this.greaterThan(value)
-      case '<':
-        return this.lessThan(value)
-      case '>=':
-        return this.greaterOrEqualThan(value)
-      case '<=':
-        return this.lessOrEqualThan(value)
-      case '!=':
-        return this.notEqual(value)
-      default:
-        throw new Error(`Unknown predicate ${operator}`)
-    }
+  bind(model) {
+    return new NumberAttribute({ ...model, schema: this })
   }
 }
+
+/**
+ * @template {string} T
+ * @extends {Schema<T>}
+ * @implements {API.TryFrom<{ Self: T, Input: Data }>}
+ */
+class StringSchema extends Schema {
+  /**
+   * @param {object} model
+   * @param {Variable<Entity>|Entity} model.entity
+   * @param {Variable<Attribute>|Attribute} model.attribute
+   * @returns {StringAttribute<T>}
+   */
+  bind(model) {
+    return new StringAttribute({ ...model, schema: this })
+  }
+}
+
+/**
+ * @template {Data} T
+ * @extends {Schema<T>}
+ */
+class DataAttribute {
+  /**
+   * @param {object} model
+   * @param {Variable<T>} model.schema
+   * @param {Term} model.attribute
+   * @param {Variable<Entity>|Entity} model.entity
+   */
+  constructor(model) {
+    this.model = model
+  }
+
+  [Symbol.toPrimitive]() {
+    return SelectedVariable.getPropertyKey(this)
+  }
+
+  /**
+   * @param {Data} value
+   * @returns {API.Result<T, Error>}
+   */
+  tryFrom(value) {
+    return this.model.schema.tryFrom(value)
+  }
+
+  /**
+   * @param {Data|Variable} value
+   * @returns {Relation}
+   */
+  is(value) {
+    return [this.model.entity, this.model.attribute, value]
+  }
+
+  /**
+   * @returns {Relation}
+   */
+  get _() {
+    return [this.model.entity, this.model.attribute, this]
+  }
+
+  /**
+   * @param {number} value
+   */
+  not(value) {
+    return [
+      this.model.entity,
+      this.model.attribute,
+      new Schema({
+        /**
+         * @param {Data} x
+         * @returns {x is number}
+         */
+        is: (x) => /** @type {number} */ (x) !== value,
+      }),
+    ]
+  }
+}
+
+/**
+ * @template {number} T
+ * @extends {DataAttribute<T>}
+ */
+class NumberAttribute extends DataAttribute {
+  /**
+   * @param {number} value
+   * @returns {Relation}
+   */
+  greaterThan(value) {
+    return [
+      this.model.entity,
+      this.model.attribute,
+      new Schema({
+        /**
+         * @param {Data} x
+         * @returns {x is number}
+         */
+        is: (x) => /** @type {number} */ (x) > value,
+      }),
+    ]
+  }
+
+  /**
+   * @param {number} value
+   * @returns {Relation}
+   */
+  lessThan(value) {
+    return [
+      this.model.entity,
+      this.model.attribute,
+      new Schema({
+        /**
+         * @param {Data} x
+         * @returns {x is number}
+         */
+        is: (x) => /** @type {number} */ (x) < value,
+      }),
+    ]
+  }
+}
+
+/**
+ * @template {string} T
+ * @extends {DataAttribute<T>}
+ */
+class StringAttribute extends DataAttribute {
+  /**
+   * @template {string} Prefix
+   * @param {Prefix} prefix
+   * @returns {Relation}
+   */
+  startsWith(prefix) {
+    return [
+      this.model.entity,
+      this.model.attribute,
+      new Schema({
+        /**
+         * @param {Data} x
+         * @returns {x is T & `${Prefix}${string}`}
+         */
+        is: (x) => typeof x === 'string' && x.startsWith(prefix),
+      }),
+    ]
+  }
+  /**
+   * @template {string} Suffix
+   * @param {Suffix} suffix
+   * @returns {Relation}
+   */
+  endsWith(suffix) {
+    return [
+      this.model.entity,
+      this.model.attribute,
+      new Schema({
+        /**
+         * @param {Data} x
+         * @returns {x is T & `${string}${Suffix}`}
+         */
+        is: (x) => typeof x === 'string' && x.endsWith(suffix),
+      }),
+    ]
+  }
+  /**
+   * @param {string} chunk
+   * @returns {Relation}
+   */
+  includes(chunk) {
+    return [
+      this.model.entity,
+      this.model.attribute,
+      new Schema({
+        /**
+         * @param {Data} x
+         * @returns {x is T}
+         */
+        is: (x) => typeof x === 'string' && x.includes(chunk),
+      }),
+    ]
+  }
+}
+
 /**
  * @template {Data} [T=Data]
  * @template {PropertyKey} [Key=PropertyKey]
@@ -559,7 +673,7 @@ class SelectedVariable {
     if (propertyKey) {
       return propertyKey
     } else {
-      const bindingKey = `${++this.lastKey}`
+      const bindingKey = `$${++this.lastKey}`
       variable[PROPERTY_KEY] = bindingKey
       return bindingKey
     }
@@ -585,11 +699,39 @@ class SelectedVariable {
 
 /**
  * @template {Record<PropertyKey, Variable>} Attributes
+ * @typedef {{[Key in keyof Attributes]: Attributes[Key] extends Variable<infer T> ? InferAttributeField<T> : never}} InferEntityFields
+ */
+
+/**
+ * @template {Data} T
+ * @typedef {T extends number ? NumberAttribute<T> :
+ *           T extends string ? StringAttribute<T> :
+ *           DataAttribute<T>} InferAttributeField
+ */
+
+/**
+ * @template {Record<PropertyKey, Variable>} Attributes
  * @param {Attributes} attributes
- * @returns {EntityView<Attributes> & Attributes}
+ * @returns {{new(): EntityView<Attributes> & InferEntityFields<Attributes>}}
  */
 export const entity = (attributes) =>
-  Object.assign(new EntityView(attributes), attributes)
+  // @ts-ignore
+  class Entity extends EntityView {
+    constructor() {
+      super()
+      for (const [key, variable] of entries(attributes)) {
+        // @ts-ignore
+        this[key] =
+          variable instanceof Schema
+            ? variable.bind({ entity: this, attribute: String(key) })
+            : new DataAttribute({
+                entity: this,
+                attribute: String(key),
+                schema: variable,
+              })
+      }
+    }
+  }
 
 /**
  * @template {Record<PropertyKey, Variable>} Attributes
@@ -610,12 +752,8 @@ class EntityView extends Schema {
         return false
     }
   }
-  /**
-   * @param {Attributes} attributes
-   */
-  constructor(attributes) {
-    super(EntityView.isEntity)
-    Object.assign(this, attributes)
+  constructor() {
+    super({ is: EntityView.isEntity })
   }
   /**
    * @param {Partial<{[Key in keyof Attributes]: Term}>} pattern
@@ -667,32 +805,32 @@ const ID = Symbol.for('entity/id')
  * @typedef {[entity: NewEntity, attribute: Attribute, value: Data|NewEntity]} Assert
  */
 
-/**
- * @param {Database} db
- * @param {Iterable<Fact|Iterable<Fact|Assert>>} assertions
- */
-export const transact = (db, assertions) => {
-  const delta = { ...db, facts: [...db.facts] }
-  for (const assertion of assertions) {
-    const facts = isFact(assertion) ? [assertion] : assertion
-    for (const [entity, attribute, value] of facts) {
-      // New entities will not have an IDs associated with them which is why
-      // we are going to allocate new one. We also store it in the entity
-      // field so that we keep same ID across all associations on the entity.
-      if (typeof entity === 'object' && !entity[ID]) {
-        entity[ID] = delta.entityCount++
-      }
+// /**
+//  * @param {Database} db
+//  * @param {Iterable<Fact|Iterable<Fact|Assert>>} assertions
+//  */
+// export const transact = (db, assertions) => {
+//   const delta = { ...db, facts: [...db.facts] }
+//   for (const assertion of assertions) {
+//     const facts = isFact(assertion) ? [assertion] : assertion
+//     for (const [entity, attribute, value] of facts) {
+//       // New entities will not have an IDs associated with them which is why
+//       // we are going to allocate new one. We also store it in the entity
+//       // field so that we keep same ID across all associations on the entity.
+//       if (typeof entity === 'object' && !entity[ID]) {
+//         entity[ID] = delta.entityCount++
+//       }
 
-      /** @type {Fact} */
-      const fact =
-        ID in /** @type {{[ID]?: number}} */ (entity)
-          ? [entity[ID], attribute, value]
-          : [entity, attribute, value]
+//       /** @type {Fact} */
+//       const fact =
+//         ID in /** @type {{[ID]?: number}} */ (entity)
+//           ? [entity[ID], attribute, value]
+//           : [entity, attribute, value]
 
-      delta.facts.push(fact)
-    }
-  }
-}
+//       delta.facts.push(fact)
+//     }
+//   }
+// }
 
 /**
  * @param {Database} db

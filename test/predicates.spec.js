@@ -6,68 +6,116 @@ import * as testDB from './microshaft-facts.js'
  */
 export const testMore = {
   'test facts': (assert) => {
-    const employee = DB.entity({
+    const Employee = DB.entity({
       name: DB.Schema.string(),
       job: DB.Schema.string(),
     })
 
+    const employee = new Employee()
     const result = DB.query(testDB, {
       select: {
-        x: employee.name,
+        name: employee.name,
       },
-      where: [employee.match({ job: 'Computer programmer' })],
+      where: [employee.job.is('Computer programmer')],
     })
+    assert.deepEqual(result, [
+      { name: 'Hacker Alyssa P' },
+      { name: 'Fect Cy D' },
+    ])
 
-    assert.deepEqual(result, [{ x: 'Hacker Alyssa P' }, { x: 'Fect Cy D' }])
+    assert.deepEqual(
+      DB.query(testDB, {
+        select: {
+          name: employee.name,
+          job: employee.job,
+        },
+        where: [employee.job.startsWith('Computer')],
+      }),
+      [
+        { name: 'Bitdiddle Ben', job: 'Computer wizard' },
+        { name: 'Hacker Alyssa P', job: 'Computer programmer' },
+        { name: 'Fect Cy D', job: 'Computer programmer' },
+        { name: 'Tweakit Lem E', job: 'Computer technician' },
+        { name: 'Reasoner Louis', job: 'Computer programmer trainee' },
+      ]
+    )
   },
-
   'test supervisor': (assert) => {
-    const supervisor = DB.entity({
+    const Supervisor = DB.entity({
       name: DB.Schema.string(),
       salary: DB.Schema.number(),
     })
 
-    const employee = DB.entity({
+    const Employee = DB.entity({
       name: DB.Schema.string(),
       salary: DB.Schema.number(),
-      supervisor: supervisor,
+      supervisor: new Supervisor(),
     })
+
+    const employee = new Employee()
+    const supervisor = new Supervisor()
 
     const result = DB.query(testDB, {
       select: {
         employee: employee.name,
-        supervisor: employee.supervisor.name,
+        supervisor: supervisor.name,
       },
-      where: [employee.match({ supervisor: supervisor })],
+      where: [employee.supervisor.is(supervisor)],
     })
 
     assert.deepEqual(result, [
+      { employee: 'Hacker Alyssa P', supervisor: 'Bitdiddle Ben' },
+      { employee: 'Fect Cy D', supervisor: 'Bitdiddle Ben' },
+      { employee: 'Tweakit Lem E', supervisor: 'Bitdiddle Ben' },
       { employee: 'Reasoner Louis', supervisor: 'Fect Cy D' },
+      { employee: 'Bitdiddle Ben', supervisor: 'Warbucks Oliver' },
       { employee: 'Scrooge Eben', supervisor: 'Warbucks Oliver' },
       { employee: 'Cratchet Robert', supervisor: 'Scrooge Eben' },
       { employee: 'Aull DeWitt', supervisor: 'Warbucks Oliver' },
     ])
   },
-
   'test salary': (assert) => {
-    const employee = DB.entity({
+    const Employee = DB.entity({
       name: DB.Schema.string(),
       salary: DB.Schema.number(),
     })
 
-    const result = DB.query(testDB, {
+    const employee = new Employee()
+    const query = {
       select: {
-        employee: employee.name,
+        // employee,
+        name: employee.name,
         salary: employee.salary,
       },
-      where: [employee.match({ salary: employee.salary.greaterThan(30_000) })],
-    })
+      where: [employee.salary.greaterThan(30_000)],
+    }
+
+    const result = DB.query(testDB, query)
 
     assert.deepEqual(result, [
-      { employee: 'Hacker Alyssa P', salary: 40000 },
-      { employee: 'Fect Cy D', salary: 35000 },
-      { employee: 'Warbucks Oliver', salary: 150000 },
-      { employee: 'Scrooge Eben', salary: 75000 },
+      { name: 'Bitdiddle Ben', salary: 60_000 },
+      { name: 'Hacker Alyssa P', salary: 40_000 },
+      { name: 'Fect Cy D', salary: 35_000 },
+      { name: 'Warbucks Oliver', salary: 150_000 },
+      { name: 'Scrooge Eben', salary: 75_000 },
     ])
+    assert.deepEqual(
+      DB.query(testDB, {
+        select: {
+          name: employee.name,
+          salary: employee.salary,
+        },
+        where: [
+          employee.salary.greaterThan(30_000),
+          employee.salary.lessThan(100_000),
+        ],
+      }),
+      [
+        { name: 'Bitdiddle Ben', salary: 60_000 },
+        { name: 'Hacker Alyssa P', salary: 40_000 },
+        { name: 'Fect Cy D', salary: 35_000 },
+        { name: 'Scrooge Eben', salary: 75_000 },
+      ]
+    )
   },
 }

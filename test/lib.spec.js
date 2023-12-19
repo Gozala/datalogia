@@ -102,19 +102,21 @@ export const testDB = {
   },
 
   'sketch pull pattern': (assert) => {
-    const director = DB.entity({
+    const Person = DB.entity({
       'person/name': DB.Schema.string(),
     })
 
-    const actor = DB.entity({
-      'person/name': DB.Schema.string(),
-    })
+    const director = new Person()
 
-    const movie = DB.entity({
+    const actor = new Person()
+
+    const Movie = DB.entity({
       'movie/title': DB.Schema.string(),
       'movie/director': director,
       'movie/cast': actor,
     })
+
+    const movie = new Movie()
 
     assert.deepEqual(
       DB.query(moviesDB, {
@@ -123,8 +125,9 @@ export const testDB = {
           movie: movie['movie/title'],
         },
         where: [
-          actor.match({ 'person/name': 'Arnold Schwarzenegger' }),
-          movie.match({ 'movie/cast': actor }),
+          actor['person/name'].is('Arnold Schwarzenegger'),
+          movie['movie/cast'].is(actor),
+          movie['movie/director'].is(director),
         ],
       }),
       [
