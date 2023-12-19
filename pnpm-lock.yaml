@@ -9,7 +9,7 @@ devDependencies:
     specifier: 8.0.1
     version: 8.0.1
   entail:
-    specifier: 2.1.2
+    specifier: ^2.1.2
     version: 2.1.2
   playwright-test:
     specifier: 14.0.0

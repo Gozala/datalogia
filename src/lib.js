@@ -16,6 +16,7 @@ export { API }
 /**
  * Database is represented as a collection of facts.
  * @typedef {object} Database
+ * @property {number} [entityCount]
  * @property {readonly Fact[]} facts
  */
 
@@ -56,7 +57,7 @@ export const assert = (entity, attribute, value) => [entity, attribute, value]
  * be used as unique identifier for the variable.
  *
  * @template {Data} [Type=Data]
- * @typedef {API.TryFrom<{ Self: Type, Input: Data }> & {propertyKey?: PropertyKey}} Variable
+ * @typedef {API.TryFrom<{ Self: Type, Input: Data }> & {[PROPERTY_KEY]?: PropertyKey}} Variable
  */
 
 /**
@@ -167,11 +168,14 @@ export const matchConstant = (constant, data, context) =>
 export const matchVariable = (variable, data, context) => {
   // Get key this variable is bound to in the context
   const key = SelectedVariable.getPropertyKey(variable)
-  // If context already contains binding for we attempt o unify it with the
+  // If context already contains binding for we attempt to unify it with the
   // new data otherwise we bind the data to the variable.
-  return key in context
-    ? matchTerm(context[key], data, context)
-    : { ...context, [key]: data }
+  if (key in context) {
+    return matchTerm(context[key], data, context)
+  } else {
+    const result = variable.tryFrom(data)
+    return result.ok ? { ...context, [key]: result.ok } : null
+  }
 }
 
 /**
@@ -366,6 +370,7 @@ const materialize = (select, context) =>
   )
 
 const IS = Symbol.for('is')
+const PROPERTY_KEY = Symbol.for('propertyKey')
 
 /**
  * @template {Data} T
@@ -374,10 +379,17 @@ const IS = Symbol.for('is')
 export class Schema {
   /**
    * @param {(value: Data) => value is T} is
+   * @param {PropertyKey} [key]
    */
-  constructor(is) {
+  constructor(is, key) {
     this[IS] = is
+    this[PROPERTY_KEY] = key
   }
+
+  [Symbol.toPrimitive]() {
+    return SelectedVariable.getPropertyKey(this)
+  }
+
   /**
    * @param {Data} value
    * @returns {API.Result<T, Error>}
@@ -398,7 +410,7 @@ export class Schema {
     )
   }
   static number() {
-    return new Schema(
+    return new NumberSchema(
       /**
        * @param {unknown} value
        * @returns {value is number}
@@ -406,6 +418,7 @@ export class Schema {
       (value) => typeof value === 'number'
     )
   }
+
   static boolean() {
     return new Schema(
       /**
@@ -416,18 +429,119 @@ export class Schema {
     )
   }
 
-  static _ = Object.assign(
-    new Schema(
-      /**
-       * @param {unknown} _
-       * @returns {_ is any}
-       */
-      (_) => true
-    ),
-    { propertyKey: '_' }
+  static _ = new Schema(
+    /**
+     * @param {unknown} _
+     * @returns {_ is any}
+     */
+    (_) => true
   )
 }
 
+/**
+ * @template {number} T
+ * @extends {Schema<T>}
+ * @implements {API.TryFrom<{ Self: T, Input: Data }>}
+ */
+class NumberSchema extends Schema {
+  /**
+   * @param {number} value
+   */
+  greaterThan(value) {
+    return new Schema(
+      /**
+       * @param {Data} x
+       * @returns {x is number}
+       */
+      (x) => /** @type {number} */ (x) > value,
+      SelectedVariable.getPropertyKey(this)
+    )
+  }
+
+  /**
+   * @param {number} value
+   */
+  lessThan(value) {
+    return new NumberSchema(
+      /**
+       * @param {Data} x
+       * @returns {x is number}
+       */
+      (x) => /** @type {number} */ (x) < value,
+      SelectedVariable.getPropertyKey(this)
+    )
+  }
+  /**
+   * @param {number} value
+   */
+  greaterOrEqualThan(value) {
+    return new NumberSchema(
+      /**
+       * @param {Data} x
+       * @returns {x is number}
+       */
+      (x) => /** @type {number} */ (x) >= value,
+      SelectedVariable.getPropertyKey(this)
+    )
+  }
+  /**
+   * @param {number} value
+   */
+  lessOrEqualThan(value) {
+    return new NumberSchema(
+      /**
+       * @param {Data} x
+       * @returns {x is number}
+       */
+      (x) => /** @type {number} */ (x) <= value,
+      SelectedVariable.getPropertyKey(this)
+    )
+  }
+  /**
+   * @param {number} value
+   */
+  notEqual(value) {
+    return new NumberSchema(
+      /**
+       * @param {Data} x
+       * @returns {x is number}
+       */
+      (x) => /** @type {number} */ (x) !== value,
+      SelectedVariable.getPropertyKey(this)
+    )
+  }
+
+  /**
+   * @typedef {API.Variant<{
+   *  '>': number
+   *  '<': number
+   *  '>=': number
+   *  '<=': number
+   *  '!=': number
+   * }>} ArithmeticPredicate
+   * @param {ArithmeticPredicate} pattern
+   */
+  match(pattern) {
+    const [operator, value] =
+      /** @type {[keyof ArithmeticPredicate, number]} */
+      (Object.entries(pattern)[0])
+
+    switch (operator) {
+      case '>':
+        return this.greaterThan(value)
+      case '<':
+        return this.lessThan(value)
+      case '>=':
+        return this.greaterOrEqualThan(value)
+      case '<=':
+        return this.lessOrEqualThan(value)
+      case '!=':
+        return this.notEqual(value)
+      default:
+        throw new Error(`Unknown predicate ${operator}`)
+    }
+  }
+}
 /**
  * @template {Data} [T=Data]
  * @template {PropertyKey} [Key=PropertyKey]
@@ -441,12 +555,12 @@ class SelectedVariable {
    * @returns {PropertyKey}
    */
   static getPropertyKey(variable) {
-    const { propertyKey } = variable
+    const propertyKey = variable[PROPERTY_KEY]
     if (propertyKey) {
       return propertyKey
     } else {
       const bindingKey = `${++this.lastKey}`
-      variable.propertyKey = bindingKey
+      variable[PROPERTY_KEY] = bindingKey
       return bindingKey
     }
   }
@@ -526,16 +640,73 @@ class EntityView extends Schema {
   }
 
   /**
-   * @param {Partial<{[Key in keyof Attributes]: Data}>} model
-   * @returns {Iterable<Fact>}
+   * @param {Partial<{[Key in keyof Attributes]: Data|NewEntity}>} model
+   * @returns {Iterable<Assert>}
    */
   *assert(model) {
     const attributes = /** @type {Attributes} */ (this.valueOf())
     for (const key of Object.keys(attributes)) {
       const value = model[key]
       if (value) {
-        yield assert(0, key, value)
+        yield [/** @type {NewEntity} */ (model), key, value]
       }
     }
   }
 }
+
+const ID = Symbol.for('entity/id')
+
+/**
+ * Asserts certain facts about the entity.
+ *
+ * @typedef {Record<PropertyKey, Data> & {[ID]?: Entity}} EntityAssertion
+ */
+
+/**
+ * @typedef {{[ID]: number}} NewEntity
+ * @typedef {[entity: NewEntity, attribute: Attribute, value: Data|NewEntity]} Assert
+ */
+
+/**
+ * @param {Database} db
+ * @param {Iterable<Fact|Iterable<Fact|Assert>>} assertions
+ */
+export const transact = (db, assertions) => {
+  const delta = { ...db, facts: [...db.facts] }
+  for (const assertion of assertions) {
+    const facts = isFact(assertion) ? [assertion] : assertion
+    for (const [entity, attribute, value] of facts) {
+      // New entities will not have an IDs associated with them which is why
+      // we are going to allocate new one. We also store it in the entity
+      // field so that we keep same ID across all associations on the entity.
+      if (typeof entity === 'object' && !entity[ID]) {
+        entity[ID] = delta.entityCount++
+      }
+
+      /** @type {Fact} */
+      const fact =
+        ID in /** @type {{[ID]?: number}} */ (entity)
+          ? [entity[ID], attribute, value]
+          : [entity, attribute, value]
+
+      delta.facts.push(fact)
+    }
+  }
+}
+
+/**
+ * @param {Database} db
+ * @param {*} x
+ */
+const resolveID = (x) => {
+  if (typeof x === 'object' && ID in x) {
+    return x[ID]
+  }
+}
+
+/**
+ *
+ * @param {unknown} x
+ * @returns {x is Fact}
+ */
+const isFact = (x) => Array.isArray(x) && x.length === 3
