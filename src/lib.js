@@ -80,10 +80,6 @@ export const assert = (entity, attribute, value) => [entity, attribute, value]
  */
 
 /**
- * @typedef {{where: Relation[]}} Predicate
- */
-
-/**
  * Selection describes set of (named) variables that query engine will attempt
  * to find values for that satisfy the query.
  *
@@ -105,61 +101,94 @@ const ATTRIBUTE = 1
 const VALUE = 2
 
 /**
+ * Attempts to match given `fact` against the given `relation`, if it is matches
+ * returns `state` extended with values for all the variables that were matched,
+ * otherwise returns `null`.
+ * 
  * @template {Selector} Selection
 
  * @param {Relation} relation
  * @param {Fact} fact
- * @param {InferState<Selection>} context
+ * @param {InferState<Selection>} state
  * @returns {InferState<Selection>|null}
  */
-export const matchRelation = (relation, fact, context) => {
-  let state = context
-  for (const id of [ENTITY, ATTRIBUTE, VALUE]) {
-    const match = matchTerm(relation[id], fact[id], state)
-    if (match) {
-      state = match
-    } else {
-      return null
-    }
-  }
+export const matchRelation = (relation, fact, state) => {
+  /** @type {InferState<Selection>|null} */
+  let match = state
 
-  return state
+  // Match entity, attribute and value on by one. If one of them does not match
+  // match fails and we return null.
+  match = matchTerm(relation[ENTITY], fact[ENTITY], match)
+  match = match && matchTerm(relation[ATTRIBUTE], fact[ATTRIBUTE], match)
+  match = match && matchTerm(relation[VALUE], fact[VALUE], match)
+
+  return match
 }
 
 /**
+ * Attempts to match given `term` against the given fact `data`, if `data`
+ * matches the term returns `state` extended with binding corresponding to the
+ * `term` otherwise returns `null`.
+ *
  * @template {Selector} Selection
  *
  * @param {Term} term
  * @param {Data} data
- * @param {InferState<Selection>} context
+ * @param {InferState<Selection>} state
  */
-export const matchTerm = (term, data, context) =>
-  // If we match against `_` we succeed and do not capture any bindings as we
-  // do not want to unify against all other uses of `_`.
+export const matchTerm = (term, data, state) =>
+  // We have a special `_` variable that matches anything. Unlike all other
+  // variables it is not unified across all the relations which is why we treat
+  // it differently and do add no bindings for it.
   isBlank(term)
-    ? context
-    : // If term is a variable then we attempt to match a data against it and
-      // unify with previously matched binding.
-
+    ? state
+    : // All other variables get unified which is why we attempt to match them
+      // against the data in the current state.
       isVariable(term)
-      ? matchVariable(term, data, context)
-      : // Otherwise we match the constant
-        matchConstant(term, data, context)
+      ? matchVariable(term, data, state)
+      : // If term is a constant we simply ensure that it matches the data.
+        matchConstant(term, data, state)
 
 /**
- * @template Context
+ * @template State
  *
  * @param {Data} constant
  * @param {Data} data
- * @param {Context} context
- * @returns {Context|null}
+ * @param {State} context
+ * @returns {State|null}
  */
 export const matchConstant = (constant, data, context) =>
-  constant === data ? context : null
+  constant === data || equal(context, data) ? context : null
 
 /**
- * @typedef {Record<string|symbol, Data>} Context
+ * @param {unknown} expected
+ * @param {unknown} actual
+ * @returns {boolean}
  */
+const equal = (expected, actual) => {
+  let length = /** @type {{byteLength?:number}} */ (expected)?.byteLength
+  if (
+    length != null &&
+    length === /** @type {{byteLength?:number}} */ (actual)?.byteLength
+  ) {
+    // If both expected and actual have `byteLength` property we assume they are
+    // Uint8Array's and proceed with byte by byte comparison. This assumption may
+    // be incorrect if at runtime type requirements are not upheld, but we don't
+    // we do not support that use case.
+    const source = /** @type {Uint8Array} */ (expected)
+    const target = /** @type {Uint8Array} */ (actual)
+    let offset = 0
+    while (offset < length) {
+      if (source[offset] !== target[offset]) {
+        return false
+      }
+      offset++
+    }
+    return true
+  }
+
+  return false
+}
 
 /**
  * @template {Selector} Selection
@@ -183,16 +212,18 @@ export const matchVariable = (variable, data, context) => {
 }
 
 /**
+ * Predicate function that checks if given `term` is a {@link Variable}.
+ *
  * @template {Data} T
- * @param {unknown|Variable<T>} x
- * @returns {x is Variable<T>}
+ * @param {unknown|Variable<T>} term
+ * @returns {term is Variable<T>}
  */
-const isVariable = (x) => {
+const isVariable = (term) => {
   return (
-    typeof x === 'object' &&
-    x !== null &&
-    'tryFrom' in x &&
-    typeof x.tryFrom === 'function'
+    typeof term === 'object' &&
+    term !== null &&
+    'tryFrom' in term &&
+    typeof term.tryFrom === 'function'
   )
 }
 
@@ -204,16 +235,20 @@ const isVariable = (x) => {
 const isBlank = (x) => x === Schema._
 
 /**
+ * Goes over all the database facts and attempts to match each one against the
+ * given `relation` and current `state`. For every match we collect matched
+ * state. Function returns all the matches if any.
+ *
  * @template {Selector} Selection
  * @param {Relation} relation
  * @param {Database} db
- * @param {InferState<Selection>} context
+ * @param {InferState<Selection>} state
  * @returns {InferState<Selection>[]}
  */
-const queryRelation = (relation, { facts }, context) => {
+const queryRelation = (relation, { facts }, state) => {
   const matches = []
   for (const fact of facts) {
-    const match = matchRelation(relation, fact, context)
+    const match = matchRelation(relation, fact, state)
     if (match) {
       matches.push(match)
     }
@@ -226,19 +261,27 @@ const queryRelation = (relation, { facts }, context) => {
  * @template {Selector} Selection
  * @param {Database} db
  * @param {Relation[]} relations
- * @param {InferState<Selection>} context
+ * @param {InferState<Selection>} state
  * @returns {InferState<Selection>[]}
  */
-export const queryRelations = (db, relations, context) =>
+export const queryRelations = (db, relations, state) =>
+  // Here we start with an initial state (which contains no bindings) and create
+  // an extended state for every fact that matched the relation. Then we take
+  // all those states and extends them by matching all facts against next
+  // relation. If state been extended conflicts with the relation we drop that
+  // state and consider next one. On every relation we will map 1 state to 0 or
+  // more extended states which is why we flatten results and repeat the process
+  // with the next relation. Once we consider all relations we will end up with
+  // a list of matched states containing values for all variables.
   relations.reduce(
     /**
-     * @param {InferState<Selection>[]} contexts
+     * @param {InferState<Selection>[]} matches
      * @param {Relation} relation
      * @returns
      */
-    (contexts, relation) =>
-      contexts.flatMap((context) => queryRelation(relation, db, context)),
-    [context]
+    (matches, relation) =>
+      matches.flatMap((match) => queryRelation(relation, db, match)),
+    [state]
   )
 
 /**
@@ -277,33 +320,62 @@ export const select = (selector) => new QueryBuilder({ select: selector })
  * @param {Database} db
  * @param {object} source
  * @param {Selection} source.select
- * @param {Iterable<Relation|Predicate>} source.where
+ * @param {Iterable<Relation>} source.where
  * @returns {InferMatch<Selection>[]}
  */
 export const query = (db, { select, where }) => {
-  /** @type {Relation[]} */
-  const relations = []
+  const relations = [...where]
 
-  for (const relation of where) {
-    if (Array.isArray(relation)) {
-      relations.push(relation)
-    } else {
-      relations.push(...relation.where)
-    }
-  }
-
+  /**
+   * Selected fields may not explicitly appear in the where clause. To
+   * illustrate consider following example
+   *
+   * @example
+   *
+   * ```ts
+   * const Movie = entity({
+   *    title: Schema.string(),
+   *     year: Schema.number()
+   * })
+   *
+   * const movie = new Movie()
+   * const result = query(db, {
+   *    select: {
+   *      title: movie.title,
+   *      year: movie.year
+   *  },
+   *  where: [movie.year.is(2000)]
+   * })
+   * ```
+   *
+   * Query `where` does not contain any references to `movie.title` therefor
+   * query engine is not going to collect corresponding facts. However since
+   * we do want values for `movie.title` we will add relation per selected
+   * attribute to make force engine to collect facts for them.
+   *
+   * 🫣 This is not ideal solution as in the example above we do use
+   * `movie.year` so we do not actually need another relation here. Instead we
+   * could collect missing attributes when materializing the results reducing
+   * unnecessary work. However this is something that can be optimized later.
+   */
   for (const attribute of Object.values(select)) {
+    // Select also could use plain variables that aren't attribute fields, for
+    // those we don't really need to do anything.
     if (attribute instanceof DataAttribute) {
-      relations.push(attribute._)
+      relations.push(attribute.match())
     }
   }
 
-  const contexts = queryRelations(
+  const matches = queryRelations(
     db,
     relations,
+    // It would make sense to populate this with corresponding variables instead
+    // of passing empty object and pretending it is not. For now we we keep it
+    // simple and we'll deal with this later.
     /** @type {InferState<Selection>} */ ({})
   )
-  return contexts.map((context) => materialize(select, context))
+
+  return matches.map((match) => materialize(select, match))
 }
 /**
  * A query builder API which is designed to enable type inference of the query
@@ -320,7 +392,7 @@ class QueryBuilder {
     this.select = select
   }
   /**
-   * @param {(variables: Select) => Iterable<Relation|Predicate>} conditions
+   * @param {(variables: Select) => Iterable<Relation>} conditions
    * @returns {Query<Select>}
    */
   where(conditions) {
@@ -345,7 +417,7 @@ class Query {
   /**
    * @param {object} model
    * @param {Selection} model.select
-   * @param {(Relation|Predicate)[]} model.where
+   * @param {(Relation)[]} model.where
    */
   constructor(model) {
     this.model = model
@@ -384,17 +456,15 @@ const IS = Symbol.for('is')
 const PROPERTY_KEY = Symbol.for('propertyKey')
 
 /**
- * @template {Data} T
- * @implements {API.TryFrom<{ Self: T, Input: Data }>}
+ * @template {Data} Self
+ * @implements {API.TryFrom<{ Self: Self, Input: Data }>}
  */
 export class Schema {
   /**
    * @param {object} model
-   * @param {(value: Data) => value is T} model.is
    * @param {PropertyKey} [model.key]
    */
-  constructor({ is, key }) {
-    this[IS] = is
+  constructor({ key } = {}) {
     this[PROPERTY_KEY] = key
   }
 
@@ -413,84 +483,220 @@ export class Schema {
 
   /**
    * @param {Data} value
-   * @returns {API.Result<T, Error>}
+   * @returns {API.Result<Self, RangeError>}
    */
   tryFrom(value) {
-    return this[IS](value)
-      ? { ok: value }
-      : { error: new TypeError(`Unknown value type ${typeof value}`) }
+    switch (typeof value) {
+      case 'string':
+      case 'boolean':
+      case 'number':
+        return { ok: /** @type {Self} */ (value) }
+      default:
+        return value instanceof Uint8Array
+          ? { ok: /** @type {Self} */ (value) }
+          : { error: new TypeError(`Unknown value type ${typeof value}`) }
+    }
+  }
+
+  /**
+   * @template {Data} Out
+   * @param {API.TryFrom<{ Input: Self, Self: Out }>} to
+   */
+  map(to) {
+    return new SchemaPipeline({ from: this, to })
   }
 
   static string() {
-    return new StringSchema({
-      /**
-       * @param {unknown} value
-       * @returns {value is string}
-       */
-      is: (value) => typeof value === 'string',
-    })
+    return new StringSchema()
   }
   static number() {
-    return new NumberSchema({
-      /**
-       * @param {unknown} value
-       * @returns {value is number}
-       */
-      is: (value) => typeof value === 'number',
-    })
+    return new NumberSchema()
   }
 
   static boolean() {
-    return new this({
-      /**
-       * @param {unknown} value
-       * @returns {value is boolean}
-       */
-      is: (value) => typeof value === 'boolean',
-    })
+    return new BooleanSchema()
   }
 
-  static _ = new Schema({
-    /**
-     * @param {unknown} _
-     * @returns {_ is any}
-     */
-    is: (_) => true,
-    key: '_',
-  })
+  static _ = new Schema({ key: '_' })
 }
 
 /**
- * @template {number} T
- * @extends {Schema<T>}
- * @implements {API.TryFrom<{ Self: T, Input: Data }>}
+ * @template {Data} Self
+ * @template State
+ * @extends {Schema<Self>}
+ */
+class SchemaPipeline extends Schema {
+  /**
+   * @param {object} model
+   * @param {PropertyKey} [model.key]
+   * @param {API.TryFrom<{ Input: Data, Self: State }>} model.from
+   * @param {API.TryFrom<{ Input: State, Self: Self }>} model.to
+   */
+  constructor(model) {
+    super(model)
+    this.model = model
+  }
+  /**
+   * @param {Data} value
+   */
+  tryFrom(value) {
+    const { from, to } = this.model
+    const result = from.tryFrom(value)
+    return result.error ? result : to.tryFrom(result.ok)
+  }
+}
+
+/**
+ * @template {number} Self
+ * @extends {Schema<Self>}
+ * @implements {API.TryFrom<{ Self: Self, Input: Data }>}
  */
 class NumberSchema extends Schema {
+  /**
+   * @template {number} Self
+   * @param {Data} value
+   * @returns {API.Result<Self, RangeError>}
+   */
+  static tryFrom(value) {
+    if (typeof value === 'number') {
+      return { ok: /** @type {Self} */ (value) }
+    } else {
+      return { error: new RangeError(`Expected number, got ${typeof value}`) }
+    }
+  }
+
   /**
    * @param {object} model
    * @param {Variable<Entity>|Entity} model.entity
    * @param {Variable<Attribute>|Attribute} model.attribute
-   * @returns {NumberAttribute<T>}
+   * @returns {NumberAttribute<Self>}
    */
   bind(model) {
     return new NumberAttribute({ ...model, schema: this })
   }
+  /**
+   * @param {Data} value
+   * @returns {API.Result<Self, RangeError>}
+   */
+  tryFrom(value) {
+    if (typeof value === 'number') {
+      return { ok: /** @type {Self} */ (value) }
+    } else {
+      return { error: new RangeError(`Expected number, got ${typeof value}`) }
+    }
+  }
+
+  /**
+   * @template {number} Refined
+   * @param {API.TryFrom<{ Input: Self, Self: Refined }>} constraint
+   */
+  refine(constraint) {
+    return new ToNumberSchema({ base: this, constraint })
+  }
 }
 
 /**
- * @template {string} T
- * @extends {Schema<T>}
- * @implements {API.TryFrom<{ Self: T, Input: Data }>}
+ * @template {number} T
+ * @template {number} Self
+ * @extends {NumberSchema<Self>}
+ */
+class ToNumberSchema extends NumberSchema {
+  /**
+   * @param {object} model
+   * @param {PropertyKey} [model.key]
+   * @param {API.TryFrom<{ Input: Data, Self: T }>} model.base
+   * @param {API.TryFrom<{ Input: T, Self: Self }>} model.constraint
+   */
+  constructor(model) {
+    super(model)
+    this.model = model
+  }
+  /**
+   * @param {Data} value
+   */
+  tryFrom(value) {
+    const result = this.model.base.tryFrom(value)
+    return result.error ? result : this.model.constraint.tryFrom(result.ok)
+  }
+}
+
+/**
+ * @template {string} Self
+ * @extends {Schema<Self>}
+ * @implements {API.TryFrom<{ Self: Self, Input: Data }>}
  */
 class StringSchema extends Schema {
   /**
    * @param {object} model
    * @param {Variable<Entity>|Entity} model.entity
    * @param {Variable<Attribute>|Attribute} model.attribute
-   * @returns {StringAttribute<T>}
+   * @returns {StringAttribute<Self>}
    */
   bind(model) {
     return new StringAttribute({ ...model, schema: this })
+  }
+  /**
+   * @param {Data} value
+   * @returns {API.Result<Self, RangeError>}
+   */
+  tryFrom(value) {
+    if (typeof value === 'string') {
+      return { ok: /** @type {Self} */ (value) }
+    } else {
+      return { error: new RangeError(`Expected number, got ${typeof value}`) }
+    }
+  }
+
+  /**
+   * @template {string} Refined
+   * @param {API.TryFrom<{ Input: Self, Self: Refined }>} constraint
+   */
+  refine(constraint) {
+    return new ToStringSchema({ base: this, constraint })
+  }
+}
+
+/**
+ * @template {string} T
+ * @template {string} Self
+ * @extends {StringSchema<Self>}
+ */
+class ToStringSchema extends StringSchema {
+  /**
+   * @param {object} model
+   * @param {PropertyKey} [model.key]
+   * @param {API.TryFrom<{ Input: Data, Self: T }>} model.base
+   * @param {API.TryFrom<{ Input: T, Self: Self }>} model.constraint
+   */
+  constructor(model) {
+    super(model)
+    this.model = model
+  }
+  /**
+   * @param {Data} value
+   */
+  tryFrom(value) {
+    const result = this.model.base.tryFrom(value)
+    return result.error ? result : this.model.constraint.tryFrom(result.ok)
+  }
+}
+
+/**
+ * @template {boolean} T
+ * @extends {Schema<T>}
+ * @implements {API.TryFrom<{ Self: T, Input: Data }>}
+ */
+class BooleanSchema extends Schema {
+  /**
+   * @param {Data} value
+   * @returns {API.Result<T, RangeError>}
+   */
+  tryFrom(value) {
+    if (typeof value === 'boolean') {
+      return { ok: /** @type {T} */ (value) }
+    } else {
+      return { error: new RangeError(`Expected number, got ${typeof value}`) }
+    }
   }
 }
 
@@ -532,32 +738,35 @@ class DataAttribute {
   /**
    * @returns {Relation}
    */
-  get _() {
+  match() {
     return [this.model.entity, this.model.attribute, this]
   }
 
   /**
-   * @param {T} value
+   * @template {T} Not
+   * @param {Not} value
    * @returns {Relation}
    */
   not(value) {
     return [
       this.model.entity,
       this.model.attribute,
-      new Schema({
-        /**
-         * @param {Data} x
-         * @returns {x is number}
-         */
-        is: (x) => /** @type {number} */ (x) !== value,
+      new SchemaPipeline({
+        from: this.model.schema,
+        to: {
+          tryFrom: (x) =>
+            x === value
+              ? { error: new RangeError(`Expected ${x} != ${value}`) }
+              : { ok: x },
+        },
       }),
     ]
   }
 }
 
 /**
- * @template {number} T
- * @extends {DataAttribute<T>}
+ * @template {number} Self
+ * @extends {DataAttribute<Self>}
  */
 class NumberAttribute extends DataAttribute {
   /**
@@ -568,12 +777,15 @@ class NumberAttribute extends DataAttribute {
     return [
       this.model.entity,
       this.model.attribute,
-      new Schema({
-        /**
-         * @param {Data} x
-         * @returns {x is number}
-         */
-        is: (x) => /** @type {number} */ (x) > value,
+      new ToNumberSchema({
+        base: this.model.schema,
+        constraint: {
+          tryFrom: (x) => {
+            return x > value
+              ? { ok: x }
+              : { error: new RangeError(`Expected ${x} > ${value}`) }
+          },
+        },
       }),
     ]
   }
@@ -586,12 +798,15 @@ class NumberAttribute extends DataAttribute {
     return [
       this.model.entity,
       this.model.attribute,
-      new Schema({
-        /**
-         * @param {Data} x
-         * @returns {x is number}
-         */
-        is: (x) => /** @type {number} */ (x) < value,
+      new ToNumberSchema({
+        base: this.model.schema,
+        constraint: {
+          tryFrom: (x) => {
+            return x < value
+              ? { ok: x }
+              : { error: new RangeError(`Expected ${x} > ${value}`) }
+          },
+        },
       }),
     ]
   }
@@ -611,12 +826,44 @@ class StringAttribute extends DataAttribute {
     return [
       this.model.entity,
       this.model.attribute,
-      new Schema({
-        /**
-         * @param {Data} x
-         * @returns {x is T & `${Prefix}${string}`}
-         */
-        is: (x) => typeof x === 'string' && x.startsWith(prefix),
+      new ToStringSchema({
+        base: this.model.schema,
+        constraint: {
+          tryFrom: (x) => {
+            return x.startsWith(prefix)
+              ? { ok: x }
+              : {
+                  error: new RangeError(
+                    `Expected ${x} to start with ${prefix}`
+                  ),
+                }
+          },
+        },
+      }),
+    ]
+  }
+  /**
+   * @template {string} Prefix
+   * @param {Prefix} prefix
+   * @returns {Relation}
+   */
+  doesNotStartsWith(prefix) {
+    return [
+      this.model.entity,
+      this.model.attribute,
+      new ToStringSchema({
+        base: this.model.schema,
+        constraint: {
+          tryFrom: (x) => {
+            return x.startsWith(prefix)
+              ? {
+                  error: new RangeError(
+                    `Expected ${x} to not start with ${prefix}`
+                  ),
+                }
+              : { ok: x }
+          },
+        },
       }),
     ]
   }
@@ -629,12 +876,17 @@ class StringAttribute extends DataAttribute {
     return [
       this.model.entity,
       this.model.attribute,
-      new Schema({
-        /**
-         * @param {Data} x
-         * @returns {x is T & `${string}${Suffix}`}
-         */
-        is: (x) => typeof x === 'string' && x.endsWith(suffix),
+      new ToStringSchema({
+        base: this.model.schema,
+        constraint: {
+          tryFrom: (x) => {
+            return x.endsWith(suffix)
+              ? { ok: x }
+              : {
+                  error: new RangeError(`Expected ${x} to end with ${suffix}`),
+                }
+          },
+        },
       }),
     ]
   }
@@ -646,14 +898,43 @@ class StringAttribute extends DataAttribute {
     return [
       this.model.entity,
       this.model.attribute,
-      new Schema({
-        /**
-         * @param {Data} x
-         * @returns {x is T}
-         */
-        is: (x) => typeof x === 'string' && x.includes(chunk),
+      new ToStringSchema({
+        base: this.model.schema,
+        constraint: {
+          tryFrom: (x) => {
+            return x.includes(chunk)
+              ? { ok: x }
+              : {
+                  error: new RangeError(`Expected ${x} to include ${chunk}`),
+                }
+          },
+        },
       }),
     ]
+  }
+
+  toLowerCase() {
+    return new StringAttribute({
+      ...this.model,
+      schema: new ToStringSchema({
+        base: this.model.schema,
+        constraint: {
+          tryFrom: (x) => ({ ok: x.toLowerCase() }),
+        },
+      }),
+    })
+  }
+
+  toUpperCase() {
+    return new StringAttribute({
+      ...this.model,
+      schema: new ToStringSchema({
+        base: this.model.schema,
+        constraint: {
+          tryFrom: (x) => ({ ok: x.toUpperCase() }),
+        },
+      }),
+    })
   }
 }
 
@@ -735,27 +1016,50 @@ export const entity = (attributes) =>
   }
 
 /**
+ * @template {Record<PropertyKey, Variable>} Bindings
+ * @param {Bindings} bindings
+ * @param {Relation[]} clauses
+ */
+export const rule = (bindings, clauses) =>
+  class Rule {
+    constructor() {
+      this.bindings = bindings
+      this.clauses = clauses
+    }
+    *[Symbol.iterator]() {
+      yield* clauses
+    }
+    /**
+     * @param {Bindings} input
+     */
+    static match(input) {
+      throw 0
+    }
+  }
+
+/**
  * @template {Record<PropertyKey, Variable>} Attributes
  * @extends {Schema<Entity>}
  */
 class EntityView extends Schema {
   /**
-   *
-   * @param {unknown} value
-   * @returns {value is Entity}
+   * @param {Data} value
+   * @returns {API.Result<Entity, RangeError>}
    */
-  static isEntity(value) {
+  tryFrom(value) {
     switch (typeof value) {
       case 'string':
       case 'number':
-        return true
+        return { ok: value }
       default:
-        return false
+        return {
+          error: new RangeError(
+            `Expected entity identifier instead got ${value}`
+          ),
+        }
     }
   }
-  constructor() {
-    super({ is: EntityView.isEntity })
-  }
+
   /**
    * @param {Partial<{[Key in keyof Attributes]: Term}>} pattern
    * @returns {{where: Relation[]}}
@@ -833,19 +1137,19 @@ const ID = Symbol.for('entity/id')
 //   }
 // }
 
-/**
- * @param {Database} db
- * @param {*} x
- */
-const resolveID = (x) => {
-  if (typeof x === 'object' && ID in x) {
-    return x[ID]
-  }
-}
+// /**
+//  * @param {Database} db
+//  * @param {*} x
+//  */
+// const resolveID = (x) => {
+//   if (typeof x === 'object' && ID in x) {
+//     return x[ID]
+//   }
+// }
 
-/**
- *
- * @param {unknown} x
- * @returns {x is Fact}
- */
-const isFact = (x) => Array.isArray(x) && x.length === 3
+// /**
+//  *
+//  * @param {unknown} x
+//  * @returns {x is Fact}
+//  */
+// const isFact = (x) => Array.isArray(x) && x.length === 3

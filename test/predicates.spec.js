@@ -118,4 +118,81 @@ export const testMore = {
       ]
     )
   },
+  'test address': (assert) => {
+    const Employee = DB.entity({
+      name: DB.Schema.string(),
+      address: DB.Schema.string(),
+    })
+
+    const employee = new Employee()
+
+    const whoLivesInCambridge = {
+      select: {
+        name: employee.name,
+        address: employee.address,
+      },
+      where: [employee.address.toLowerCase().includes('campridge')],
+    }
+
+    assert.deepEqual(DB.query(testDB, whoLivesInCambridge), [
+      { name: 'Hacker Alyssa P', address: 'Campridge, Mass Ave 78' },
+      { name: 'Fect Cy D', address: 'Campridge, Ames Street 3' },
+    ])
+  },
+  'only test employee with non comp supervisor ': (assert) => {
+    const Employee = DB.entity({
+      name: DB.Schema.string(),
+      supervisor: DB.Schema.string(),
+      job: DB.Schema.string(),
+    })
+
+    const employee = new Employee()
+    const supervisor = new Employee()
+
+    assert.deepEqual(
+      DB.query(testDB, {
+        select: {
+          employee: employee.name,
+          supervisor: supervisor.name,
+        },
+        where: [
+          employee.job.startsWith('Computer'),
+          employee.supervisor.is(supervisor),
+          supervisor.job.doesNotStartsWith('Computer'),
+        ],
+      }),
+      [
+        {
+          employee: 'Bitdiddle Ben',
+          supervisor: 'Warbucks Oliver',
+        },
+      ]
+    )
+  },
+
+  'test rules': (assert) => {
+    const Supervisor = DB.entity({
+      job: DB.Schema.string(),
+    })
+
+    const supervisor = new Supervisor()
+    const Employee = DB.entity({
+      job: DB.Schema.string(),
+      supervisor,
+    })
+
+    const employee = new Employee()
+    const department = DB.Schema.string()
+    const BigShot = DB.rule(
+      {
+        employee,
+        department,
+      },
+      [
+        employee.job.startsWith(department),
+        employee.supervisor.is(supervisor),
+        supervisor.job.doesNotStartsWith(department),
+      ]
+    )
+  },
 }
