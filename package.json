@@ -29,6 +29,11 @@
       "default": "./src/lib.js"
     }
   },
+  "dependencies": {
+    "@ipld/dag-cbor": "^9.0.7",
+    "@noble/hashes": "1.3.3",
+    "multiformats": "^13.0.0"
+  },
   "devDependencies": {
     "c8": "8.0.1",
     "entail": "^2.1.2",

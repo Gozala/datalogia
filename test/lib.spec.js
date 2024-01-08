@@ -66,13 +66,14 @@ export const testDB = {
   },
 
   'test baisc': async (assert) => {
+    /** @type {DB.Fact[]} */
     const facts = [
-      DB.assert('sally', 'age', 21),
-      DB.assert('fred', 'age', 42),
-      DB.assert('ethel', 'age', 42),
-      DB.assert('fred', 'likes', 'pizza'),
-      DB.assert('sally', 'likes', 'opera'),
-      DB.assert('ethel', 'likes', 'sushi'),
+      ['sally', 'age', 21],
+      ['fred', 'age', 42],
+      ['ethel', 'age', 42],
+      ['fred', 'likes', 'pizza'],
+      ['sally', 'likes', 'opera'],
+      ['ethel', 'likes', 'sushi'],
     ]
 
     const e = DB.Schema.string()

@@ -26,7 +26,7 @@ export const facts = /** @type{const} */ ([
   [4, 'address', 'Slumerville Pine Tree Road 80'],
   [4, 'job', 'Computer programmer trainee'],
   [4, 'salary', 30_000],
-  [4, 'supervisor', 2],
+  [4, 'supervisor', 1],
 
   [0, 'supervisor', 5],
   [5, 'name', 'Warbucks Oliver'],

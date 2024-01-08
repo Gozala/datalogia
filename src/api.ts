@@ -1,3 +1,5 @@
+import { PROPERTY_KEY } from './lib.js'
+
 /**
  * Generic reader interface that can be used to read `O` value form the
  * input `I` value. Reader may fail and error is denoted by `X` type.
@@ -109,6 +111,135 @@ export type New<T, Type = Tagged<T>> = Tagged<T>[keyof Tagged<T>] &
 export type Int32 = New<{ Integer: number }>
 export type Float32 = New<{ Float: number }>
 export type Uint64 = New<{ Uint64: bigint }>
-export type Link = New<{ Link: Uint8Array }>
+export type Link<T extends {} | null = {} | null> = New<{ Link: Uint8Array }, T>
+
 export type Bytes = Uint8Array
-export type Value = boolean | Int32 | Float32 | Uint64 | string | Bytes | Link
+export type Constant =
+  | boolean
+  | Int32
+  | Float32
+  | Uint64
+  | string
+  | Bytes
+  | Link
+
+export interface Variable<T extends Constant = Constant>
+  extends TryFrom<{ Self: T; Input: Constant }> {
+  [PROPERTY_KEY]?: PropertyKey
+}
+
+export type Term<T extends Constant = Constant> = T | Variable<T>
+
+export type Pattern = [
+  entity: Term<Entity>,
+  attribute: Term<Attribute>,
+  value: Term<Constant>,
+]
+export type Query = Variant<{
+  match: Pattern
+  and: Query[]
+  or: Query[]
+  not: Query
+  when: Predicate
+}>
+
+export type Condition = Variant<{
+  is: Pattern
+  not: Pattern
+}>
+
+export type Clause = Variant<{
+  and: Condition[]
+  or: Condition[]
+}>
+
+export type Frame = Record<PropertyKey, Term>
+
+export type Entity = string | Float32 | Int32 | Uint64 | Bytes
+export type Attribute = string | Float32 | Int32 | Uint64 | Bytes
+export type Fact = readonly [
+  entity: Entity,
+  attribute: Attribute,
+  value: Constant,
+]
+
+export interface FactsSelector {
+  entity?: Entity
+  attribute?: Attribute
+  value?: Constant
+}
+
+type Operation = Variant<{
+  assert: Fact
+}>
+
+export interface Transaction extends Iterable<Operation> {}
+
+export interface Transactor {
+  transact(transaction: Transaction): Promise<Result<{}, Error>>
+}
+
+export interface Querier {
+  facts(selector?: FactsSelector): Iterable<Fact>
+}
+
+export type Constraint = Variant<{
+  '==': [Term, Term]
+  '!=': [Term, Term]
+  '<': [Term, Term]
+  '<=': [Term, Term]
+  '>': [Term, Term]
+  '>=': [Term, Term]
+}>
+
+export type Rule = DeductiveRule | InductiveRule
+
+export interface DeductiveRule {
+  select: Bindings
+  where: RulePredicate[]
+}
+
+export interface InductiveRule {
+  select: Bindings
+  where: RulePredicate[]
+}
+
+export interface Bindings extends Record<PropertyKey, Variable> {}
+
+export type InferBindings<T extends Bindings> = {
+  [K in keyof T]: T[K] extends Variable<infer U> ? U : never
+}
+
+export interface Atom extends Record<PropertyKey, Term> {}
+
+export type Selection = Atom | Variable<Link<Record<PropertyKey, Constant>>>
+
+export interface Match {
+  match: Bindings
+  rule: Rule
+}
+
+export type RulePredicate = Variant<{
+  select: Selection
+
+  match: Match
+  or: RulePredicate[]
+  not: RulePredicate
+}>
+
+export interface Not {
+  not: Atom
+  match?: void
+  rule?: void
+}
+
+export type Combinator = Variant<{}>
+
+export interface Premise {
+  bindings: Bindings
+  rule: Rule
+}
+
+export interface Predicate<Input = Frame> {
+  match(input: Input): Result<{}, Error>
+}

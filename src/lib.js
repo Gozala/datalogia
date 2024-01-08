@@ -1,5 +1,8 @@
 import * as API from './api.js'
 export * from './api.js'
+import * as Link from 'multiformats/link'
+export { when } from './predicate.js'
+export * as Memory from './memory.js'
 export { API }
 
 /**
@@ -10,7 +13,7 @@ export { API }
  *
  * @typedef {string|Float|Integer} Entity
  * @typedef {Integer|Float|Bytes|UTF8} Attribute
- * @typedef {boolean|UTF8|Integer|Float|Bytes} Data
+ * @typedef {API.Constant} Data
  */
 
 /**
@@ -32,20 +35,6 @@ export { API }
  *
  * @typedef {readonly [entity: Entity, attribute: Attribute, value: Data]} Fact
  */
-
-/**
- * Creates an assertion.
- *
- * @template {Entity} E
- * @template {Attribute} A
- * @template {Data} V
- *
- * @param {E} entity
- * @param {A} attribute
- * @param {V} value
- * @returns {readonly [entity: E, attribute:A, value:V]}
- */
-export const assert = (entity, attribute, value) => [entity, attribute, value]
 
 /**
  * Variable is placeholder for a value that will be matched against by the
@@ -200,7 +189,7 @@ const equal = (expected, actual) => {
  */
 export const matchVariable = (variable, data, context) => {
   // Get key this variable is bound to in the context
-  const key = SelectedVariable.getPropertyKey(variable)
+  const key = getPropertyKey(variable)
   // If context already contains binding for we attempt to unify it with the
   // new data otherwise we bind the data to the variable.
   if (key in context) {
@@ -212,13 +201,33 @@ export const matchVariable = (variable, data, context) => {
 }
 
 /**
+ * @template {API.Constant} T
+ * @param {API.Variable<T>} variable
+ * @param {API.Frame} frame
+ * @returns {API.Result<T, RangeError>}
+ */
+export const resolveBinding = (variable, frame) => {
+  // Get key this variable is bound to in the context
+  const key = getPropertyKey(variable)
+
+  if (key in frame) {
+    const binding = frame[key]
+    if (!isVariable(binding)) {
+      return { ok: /** @type {T} */ (binding) }
+    }
+  }
+
+  return { error: new RangeError(`Variable is not bound yet`) }
+}
+
+/**
  * Predicate function that checks if given `term` is a {@link Variable}.
  *
- * @template {Data} T
- * @param {unknown|Variable<T>} term
- * @returns {term is Variable<T>}
+ * @template {API.Constant} T
+ * @param {unknown|API.Variable<T>} term
+ * @returns {term is API.Variable<T>}
  */
-const isVariable = (term) => {
+export const isVariable = (term) => {
   return (
     typeof term === 'object' &&
     term !== null &&
@@ -445,15 +454,13 @@ const materialize = (select, context) =>
     Object.fromEntries(
       entries(select).map(([name, variable]) => [
         name,
-        isVariable(variable)
-          ? context[SelectedVariable.getPropertyKey(variable)]
-          : variable,
+        isVariable(variable) ? context[getPropertyKey(variable)] : variable,
       ])
     )
   )
 
 const IS = Symbol.for('is')
-const PROPERTY_KEY = Symbol.for('propertyKey')
+export const PROPERTY_KEY = Symbol.for('propertyKey')
 
 /**
  * @template {Data} Self
@@ -468,8 +475,12 @@ export class Schema {
     this[PROPERTY_KEY] = key
   }
 
+  get $() {
+    return getPropertyKey(this)
+  }
+
   [Symbol.toPrimitive]() {
-    return SelectedVariable.getPropertyKey(this)
+    return getPropertyKey(this)
   }
 
   /**
@@ -504,6 +515,10 @@ export class Schema {
    */
   map(to) {
     return new SchemaPipeline({ from: this, to })
+  }
+
+  static link() {
+    return new LinkSchema()
   }
 
   static string() {
@@ -543,6 +558,25 @@ class SchemaPipeline extends Schema {
     const { from, to } = this.model
     const result = from.tryFrom(value)
     return result.error ? result : to.tryFrom(result.ok)
+  }
+}
+
+/**
+ * @template {{}} T
+ * @extends {Schema<API.Link<T>>}
+ * @implements {API.TryFrom<{ Self: API.Link<T>, Input: Data }>}
+ */
+class LinkSchema extends Schema {
+  /**
+   * @param {Data} value
+   * @returns {API.Result<API.Link<T>, RangeError>}
+   */
+  tryFrom(value) {
+    if (Link.isLink(value)) {
+      return { ok: /** @type {any} */ (value) }
+    } else {
+      return { error: new RangeError(`Expected number, got ${typeof value}`) }
+    }
   }
 }
 
@@ -716,7 +750,7 @@ class DataAttribute {
   }
 
   [Symbol.toPrimitive]() {
-    return SelectedVariable.getPropertyKey(this)
+    return getPropertyKey(this)
   }
 
   /**
@@ -939,27 +973,27 @@ class StringAttribute extends DataAttribute {
 }
 
 /**
+ * @param {API.Variable|Variable} variable
+ * @returns {PropertyKey}
+ */
+export const getPropertyKey = (variable) => {
+  const propertyKey = variable[PROPERTY_KEY]
+  if (propertyKey) {
+    return propertyKey
+  } else {
+    const bindingKey = `$${++SelectedVariable.lastKey}`
+    variable[PROPERTY_KEY] = bindingKey
+    return bindingKey
+  }
+}
+
+/**
  * @template {Data} [T=Data]
  * @template {PropertyKey} [Key=PropertyKey]
  * @extends {Variable<T>}
  */
 class SelectedVariable {
   static lastKey = 0
-
-  /**
-   * @param {Variable} variable
-   * @returns {PropertyKey}
-   */
-  static getPropertyKey(variable) {
-    const propertyKey = variable[PROPERTY_KEY]
-    if (propertyKey) {
-      return propertyKey
-    } else {
-      const bindingKey = `$${++this.lastKey}`
-      variable[PROPERTY_KEY] = bindingKey
-      return bindingKey
-    }
-  }
 
   /**
    * @param {object} source
@@ -1153,3 +1187,214 @@ const ID = Symbol.for('entity/id')
 //  * @returns {x is Fact}
 //  */
 // const isFact = (x) => Array.isArray(x) && x.length === 3
+
+/**
+ *
+ * @param {API.Querier} db
+ * @param {API.Query} query
+ * @param {Iterable<API.Frame>} frames
+ * @returns {Iterable<API.Frame>}
+ */
+export const evaluate = function* (db, query, frames = [{}]) {
+  if (query.or) {
+    yield* evaluateOr(db, query.or, frames)
+  } else if (query.and) {
+    yield* evaluateAnd(db, query.and, frames)
+  } else if (query.not) {
+    yield* evaluateNot(db, query.not, frames)
+  } else if (query.when) {
+    yield* evaluateWhen(db, query.when, frames)
+  } else {
+    yield* evaluateMatch(db, query.match, frames)
+  }
+}
+
+/**
+ * Takes conjunct queries and frames and returns extended frames.
+ *
+ *
+ * @param {API.Querier} db
+ * @param {API.Query[]} conjuncts
+ * @param {Iterable<API.Frame>} frames
+ */
+export const evaluateAnd = function* (db, conjuncts, frames) {
+  for (const query of conjuncts) {
+    frames = evaluate(db, query, frames)
+  }
+
+  yield* frames
+}
+
+/**
+ *
+ * @param {API.Querier} db
+ * @param {API.Query} operand
+ * @param {Iterable<API.Frame>} frames
+ */
+export const evaluateNot = function* (db, operand, frames) {
+  for (const frame of frames) {
+    if (isEmpty(evaluate(db, operand, [frame]))) {
+      yield frame
+    }
+  }
+}
+
+/**
+ * This is a filter similar to `evaluateNot`, each frame is is used to
+ * materialize an input for the predicate function. If predicate returns an
+ * error frame is filtered out otherwise it is passed through.
+ *
+ * TODO: Currently unbound (frame) variables would get filtered out, however
+ * we should instead throw an exception as query is invalid.
+ *
+ * @param {API.Querier} db
+ * @param {API.Predicate} predicate
+ * @param {Iterable<API.Frame>} frames
+ */
+export const evaluateWhen = function* (db, predicate, frames) {
+  for (const frame of frames) {
+    if (!predicate.match(frame).error) {
+      yield frame
+    }
+  }
+}
+
+/**
+ * @param {Iterable<unknown>} iterable
+ */
+const isEmpty = (iterable) => {
+  for (const _ of iterable) {
+    return false
+  }
+  return true
+}
+
+/**
+ * Takes disjunct queries and frames and returns extended frames.
+ *
+ * @param {API.Querier} db
+ * @param {API.Query[]} disjuncts
+ * @param {Iterable<API.Frame>} frames
+ */
+export const evaluateOr = function* (db, disjuncts, frames) {
+  // We copy iterable here because first disjunct will consume all the frames
+  // and subsequent ones will not have any frames to work with otherwise.
+  frames = [...frames]
+  for (const query of disjuncts) {
+    yield* evaluate(db, query, frames)
+  }
+}
+
+/**
+ *
+ * @param {API.Querier} db
+ * @param {API.Query['match'] & {}} pattern
+ * @param {Iterable<API.Frame>} frames
+ */
+
+const evaluateMatch = function* (db, pattern, frames) {
+  // We collect facts to avoid reaching for the db on each frame.
+  const facts = [...iterateFacts(db, pattern)]
+  for (const frame of frames) {
+    for (const fact of facts) {
+      yield* matchFact(fact, pattern, frame)
+    }
+  }
+}
+
+/**
+ * @param {API.Querier} db
+ * @param {API.Pattern} pattern
+ */
+const iterateFacts = (db, [entity, attribute, value]) =>
+  db.facts({
+    entity: isVariable(entity) ? undefined : entity,
+    attribute: isVariable(attribute) ? undefined : attribute,
+    value: isVariable(value) ? undefined : value,
+  })
+
+/**
+ *
+ * @param {API.Fact} fact
+ * @param {API.Pattern} pattern
+ * @param {API.Frame} frame
+ */
+const matchFact = function* (fact, pattern, frame) {
+  const result = matchPattern(pattern, fact, frame)
+  if (result.ok) {
+    yield result.ok
+  }
+}
+
+/**
+ *
+ * @param {API.Pattern} pattern
+ * @param {API.Fact} fact
+ * @param {API.Frame} frame
+ * @returns {API.Result<API.Frame, Error>}
+ */
+const matchPattern = (pattern, [entity, attribute, value], frame) => {
+  let result = matchPatternTerm(pattern[ENTITY], entity, frame)
+  result = result.error
+    ? result
+    : matchPatternTerm(pattern[ATTRIBUTE], attribute, result.ok)
+
+  result = result.error
+    ? result
+    : matchPatternTerm(pattern[VALUE], value, result.ok)
+
+  return result
+}
+
+/**
+ *
+ * @param {API.Term} term
+ * @param {API.Constant} data
+ * @param {API.Frame} frame
+ * @returns {API.Result<API.Frame, Error>}
+ */
+const matchPatternTerm = (term, data, frame) =>
+  // We have a special `_` variable that matches anything. Unlike all other
+  // variables it is not unified across all the relations which is why we treat
+  // it differently and do add no bindings for it.
+  isBlank(term)
+    ? { ok: frame }
+    : // All other variables get unified which is why we attempt to match them
+      // against the data in the current state.
+      isVariable(term)
+      ? matchPatternVariable(term, data, frame)
+      : // If term is a constant we simply ensure that it matches the data.
+        matchLiteral(term, data, frame)
+
+/**
+ * @template {API.Frame} State
+ *
+ * @param {API.Constant} constant
+ * @param {API.Constant} data
+ * @param {State} frame
+ * @returns {API.Result<State, Error>}
+ */
+export const matchLiteral = (constant, data, frame) =>
+  constant === data || equal(constant, data)
+    ? { ok: frame }
+    : { error: new RangeError(`Expected ${constant} got ${data}`) }
+
+/**
+ *
+ * @param {API.Variable} variable
+ * @param {API.Constant} data
+ * @param {API.Frame} frame
+ * @returns {API.Result<API.Frame, Error>}
+ */
+export const matchPatternVariable = (variable, data, frame) => {
+  // Get key this variable is bound to in the context
+  const key = getPropertyKey(variable)
+  // If context already contains binding for we attempt to unify it with the
+  // new data otherwise we bind the data to the variable.
+  if (key in frame) {
+    return matchPatternTerm(frame[key], data, frame)
+  } else {
+    const result = variable.tryFrom(data)
+    return result.error ? result : { ok: { ...frame, [key]: result.ok } }
+  }
+}
