@@ -139,7 +139,7 @@ export const testMore = {
       { name: 'Fect Cy D', address: 'Campridge, Ames Street 3' },
     ])
   },
-  'only test employee with non comp supervisor ': (assert) => {
+  'test employee with non comp supervisor ': (assert) => {
     const Employee = DB.entity({
       name: DB.Schema.string(),
       supervisor: DB.Schema.string(),
@@ -170,7 +170,7 @@ export const testMore = {
     )
   },
 
-  'test rules': (assert) => {
+  'skip rules': (assert) => {
     const Supervisor = DB.entity({
       job: DB.Schema.string(),
     })
@@ -195,4 +195,9 @@ export const testMore = {
       ]
     )
   },
+
+
+  'outranked by': (assert) => {
+    const Stuff 
+  }
 }
