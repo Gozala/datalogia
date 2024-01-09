@@ -43,12 +43,12 @@ export const testMore = {
   'test supervisor': (assert) => {
     const Supervisor = DB.entity({
       name: DB.Schema.string(),
-      salary: DB.Schema.number(),
+      salary: DB.Schema.integer(),
     })
 
     const Employee = DB.entity({
       name: DB.Schema.string(),
-      salary: DB.Schema.number(),
+      salary: DB.Schema.integer(),
       supervisor: new Supervisor(),
     })
 
@@ -67,7 +67,7 @@ export const testMore = {
       { employee: 'Hacker Alyssa P', supervisor: 'Bitdiddle Ben' },
       { employee: 'Fect Cy D', supervisor: 'Bitdiddle Ben' },
       { employee: 'Tweakit Lem E', supervisor: 'Bitdiddle Ben' },
-      { employee: 'Reasoner Louis', supervisor: 'Fect Cy D' },
+      { employee: 'Reasoner Louis', supervisor: 'Hacker Alyssa P' },
       { employee: 'Bitdiddle Ben', supervisor: 'Warbucks Oliver' },
       { employee: 'Scrooge Eben', supervisor: 'Warbucks Oliver' },
       { employee: 'Cratchet Robert', supervisor: 'Scrooge Eben' },
@@ -77,7 +77,7 @@ export const testMore = {
   'test salary': (assert) => {
     const Employee = DB.entity({
       name: DB.Schema.string(),
-      salary: DB.Schema.number(),
+      salary: DB.Schema.integer(),
     })
 
     const employee = new Employee()
@@ -169,35 +169,4 @@ export const testMore = {
       ]
     )
   },
-
-  'skip rules': (assert) => {
-    const Supervisor = DB.entity({
-      job: DB.Schema.string(),
-    })
-
-    const supervisor = new Supervisor()
-    const Employee = DB.entity({
-      job: DB.Schema.string(),
-      supervisor,
-    })
-
-    const employee = new Employee()
-    const department = DB.Schema.string()
-    const BigShot = DB.rule(
-      {
-        employee,
-        department,
-      },
-      [
-        employee.job.startsWith(department),
-        employee.supervisor.is(supervisor),
-        supervisor.job.doesNotStartsWith(department),
-      ]
-    )
-  },
-
-
-  'outranked by': (assert) => {
-    const Stuff 
-  }
 }

@@ -76,9 +76,9 @@ export const testDB = {
   'is predicate': async (assert) => {
     const db = DB.Memory.create(moviesDB)
 
-    const arnold = DB.Schema.number()
-    const director = DB.Schema.number()
-    const movie = DB.Schema.number()
+    const arnold = DB.Schema.integer()
+    const director = DB.Schema.integer()
+    const movie = DB.Schema.integer()
     const directorName = DB.Schema.string()
     const movieTitle = DB.Schema.string()
 
@@ -113,7 +113,7 @@ export const testDB = {
   'test facts': async (assert) => {
     const db = DB.Memory.create(employeeDB)
 
-    const id = DB.Schema.number()
+    const id = DB.Schema.integer()
     const name = DB.Schema.string()
     const matches = DB.evaluate(db, {
       and: [
@@ -131,9 +131,9 @@ export const testDB = {
   'test supervisor': async (assert) => {
     const db = DB.Memory.create(employeeDB)
 
-    const supervisor = DB.Schema.number()
+    const supervisor = DB.Schema.integer()
     const supervisorName = DB.Schema.string()
-    const employee = DB.Schema.number()
+    const employee = DB.Schema.integer()
     const employeeName = DB.Schema.string()
     const matches = DB.evaluate(db, {
       and: [
@@ -165,9 +165,9 @@ export const testDB = {
     const db = DB.Memory.create(employeeDB)
 
     const employee = {
-      id: DB.Schema.number(),
+      id: DB.Schema.integer(),
       name: DB.Schema.string(),
-      salary: DB.Schema.number(),
+      salary: DB.Schema.integer(),
     }
 
     const matches = DB.evaluate(db, {
@@ -248,14 +248,14 @@ export const testDB = {
   'test or': async (assert) => {
     const db = DB.Memory.create(employeeDB)
 
-    const ben = DB.Schema.number()
-    const alyssa = DB.Schema.number()
+    const ben = DB.Schema.integer()
+    const alyssa = DB.Schema.integer()
     const employee = {
-      id: DB.Schema.number(),
+      id: DB.Schema.integer(),
       name: DB.Schema.string(),
     }
     const supervisor = {
-      id: DB.Schema.number(),
+      id: DB.Schema.integer(),
       name: DB.Schema.string(),
     }
 
@@ -293,7 +293,7 @@ export const testDB = {
     const db = DB.Memory.create(employeeDB)
 
     const ben = {
-      id: DB.Schema.number(),
+      id: DB.Schema.integer(),
       name: 'Bitdiddle Ben',
     }
 
@@ -302,7 +302,7 @@ export const testDB = {
     }
 
     const employee = {
-      id: DB.Schema.number(),
+      id: DB.Schema.integer(),
       name: DB.Schema.string(),
       job: DB.Schema.string(),
     }

@@ -1,4 +1,4 @@
-import { PROPERTY_KEY } from './lib.js'
+import { PROPERTY_KEY } from './variable.js'
 
 /**
  * Generic reader interface that can be used to read `O` value form the
@@ -108,20 +108,13 @@ export interface Phantom<T> {
 export type New<T, Type = Tagged<T>> = Tagged<T>[keyof Tagged<T>] &
   Phantom<Type>
 
-export type Int32 = New<{ Integer: number }>
-export type Float32 = New<{ Float: number }>
-export type Uint64 = New<{ Uint64: bigint }>
+export type Int32 = New<{ Int32: number }>
+export type Float32 = New<{ Float32: number }>
+export type Int64 = New<{ Int64: bigint }>
 export type Link<T extends {} | null = {} | null> = New<{ Link: Uint8Array }, T>
 
 export type Bytes = Uint8Array
-export type Constant =
-  | boolean
-  | Int32
-  | Float32
-  | Uint64
-  | string
-  | Bytes
-  | Link
+export type Constant = boolean | Int32 | Float32 | Int64 | string | Bytes | Link
 
 export interface Variable<T extends Constant = Constant>
   extends TryFrom<{ Self: T; Input: Constant }> {
@@ -165,8 +158,8 @@ export type Clause = Variant<{
 
 export type Frame = Record<PropertyKey, Term>
 
-export type Entity = string | Float32 | Int32 | Uint64 | Bytes
-export type Attribute = string | Float32 | Int32 | Uint64 | Bytes
+export type Entity = string | Float32 | Int32 | Int64 | Bytes
+export type Attribute = string | Float32 | Int32 | Int64 | Bytes
 export type Fact = readonly [
   entity: Entity,
   attribute: Attribute,
@@ -255,3 +248,107 @@ export type Combinator = Variant<{}>
 export interface Predicate<Input = Frame> {
   match(input: Input): Result<{}, Error>
 }
+
+/**
+ * Aggregate is a stateful operation that can be used to compute results of the
+ * query.
+ */
+export interface Aggregate<
+  Type extends {
+    Self: {} | null
+    In: unknown
+    Out: unknown
+  },
+> {
+  init(): Type['Self']
+  /**
+   * Takes the aggregator state and new input value and computes new state.
+   */
+  step(state: Type['Self'], input: Type['In']): Result<Type['Self'], Error>
+  /**
+   * Takes aggregator state and computes final result.
+   */
+  end(state: Type['Self']): Result<Type['Out'], Error>
+}
+
+export type RelationID = string
+// ColId
+export type RowID = string
+
+export interface Declaration {
+  id: RelationID
+  schema: Table
+
+  source: Source
+}
+
+export type Source = Variant<{
+  Edb: {}
+  Idb: {}
+}>
+
+export interface Relation {
+  length: number
+  isEmpty(): boolean
+  contains(bindings: Record<PropertyKey, Constant>): boolean
+  search(bindings: Record<PropertyKey, Constant>): Iterable<Instance>
+
+  purge(): void
+  insert(bindings: Record<PropertyKey, Constant>, instance: Instance): void
+  merge(relation: Relation): void
+}
+
+export interface Instance {
+  id: RelationID
+  rows: Record<RowID, Row>
+  link: Link
+}
+
+export interface Table<Rows extends Record<RowID, Row> = Record<RowID, Row>> {
+  id: RelationID
+  rows: Rows
+}
+
+export interface Row {
+  id: RowID
+  type: RowType
+}
+
+export type Type = Variant<{
+  Boolean: TryFrom<{ Self: boolean; Input: Constant }>
+  Int32: TryFrom<{ Self: Int32; Input: Constant }>
+  Int64: TryFrom<{ Self: Int64; Input: Constant }>
+  Float32: TryFrom<{ Self: Float32; Input: Constant }>
+  String: TryFrom<{ Self: string; Input: Constant }>
+  Bytes: TryFrom<{ Self: Uint8Array; Input: Constant }>
+  Link: TryFrom<{ Self: Link; Input: Constant }>
+}>
+
+export type RowType = Variant<{
+  Any: TryFrom<{ Self: Constant; Input: Constant }>
+  Boolean: TryFrom<{ Self: boolean; Input: Constant }>
+  Int32: TryFrom<{ Self: Int32; Input: Constant }>
+  Int64: TryFrom<{ Self: Int64; Input: Constant }>
+  Float32: TryFrom<{ Self: Float32; Input: Constant }>
+  String: TryFrom<{ Self: string; Input: Constant }>
+  Bytes: TryFrom<{ Self: Uint8Array; Input: Constant }>
+  Link: TryFrom<{ Self: Link; Input: Constant }>
+}>
+
+export type InferType<T extends RowType> = T['Any'] extends TryFrom<any>
+  ? Constant
+  : T['Boolean'] extends TryFrom<any>
+    ? boolean
+    : T['Int32'] extends TryFrom<any>
+      ? Int32
+      : T['Int64'] extends TryFrom<any>
+        ? Int64
+        : T['Float32'] extends TryFrom<any>
+          ? Float32
+          : T['String'] extends TryFrom<any>
+            ? string
+            : T['Bytes'] extends TryFrom<any>
+              ? Uint8Array
+              : T['Link'] extends TryFrom<any>
+                ? Link
+                : never

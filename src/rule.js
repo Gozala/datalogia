@@ -1,5 +1,8 @@
 import * as API from './api.js'
-import { isVariable, getPropertyKey, Schema } from './lib.js'
+import { iterateVariables } from './lib.js'
+import * as Table from './table.js'
+import * as Row from './row.js'
+import * as Variable from './variable.js'
 
 /**
  * @template {API.Bindings} Match
@@ -13,6 +16,22 @@ export const rule = ({ match, where = [] }) =>
     match,
     where: { and: where },
   })
+
+/**
+ * @template {API.Bindings} Match
+ *
+ * @param {object} source
+ * @param {Match} source.match
+ * @param {API.Query[]} [source.where]
+ */
+const build = ({ match, where = [] }) => {
+  const builder = new RuleBodyBuilder()
+
+  for (const variable of iterateVariables({ and: where })) {
+  }
+
+  builder.search('self', match)
+}
 
 /**
  * @template {API.Bindings} Match
@@ -144,3 +163,77 @@ export const setup = (rule) => {
  * @param {API.Rule} rule
  */
 export const conclusion = (rule) => rule.match
+
+/**
+ * @template {API.Bindings} Bindings
+ */
+class HeadBuilder {
+  /**
+   * @param {object} source
+   * @param {API.Declaration} source.relation
+   */
+  static new({ relation }) {
+    return new HeadBuilder({ relation, bindings: {} })
+  }
+  /**
+   * @param {object} model
+   * @param {API.Declaration} model.relation
+   * @param {Bindings} model.bindings
+   */
+  constructor({ bindings, relation }) {
+    this.relation = relation
+    this.bindings = bindings
+  }
+  /**
+   * @template {API.Bindings} Ext
+   * @param {Ext} bindings
+   * @returns {HeadBuilder<Bindings & Ext>}
+   */
+  bind(bindings) {
+    return Object.assign(/** @type {HeadBuilder<API.Bindings>} */ (this), {
+      bindings: Object.assign(this.bindings, bindings),
+    })
+  }
+
+  /**
+   * @param {Record<PropertyKey, API.RowType>} variables
+   */
+  build(variables) {
+    const table = this.relation.schema
+    const rows = {}
+
+    for (const [rowID, term] of Object.entries(this.bindings)) {
+      const row = Table.getRow(table, rowID)
+      if (!row) {
+        throw new RangeError(`Invalid row ${this.relation.id}.${rowID}`)
+      }
+
+      if (rows.hasOwnProperty(rowID)) {
+        throw new RangeError(`Duplicate row ${this.relation.id}.${rowID}`)
+      }
+
+      if (Variable.is(term)) {
+        const type = variables[Variable.id(term)]
+        if (type) {
+          const result = Row.unify(type, row.type)
+          const result2 = result.ok
+            ? Row.unify(result.ok, Variable.type(term))
+            : result
+        } else {
+          throw new RangeError(
+            `Clause not range restricted ${rowID} ${getPropertyKey(
+              term
+            ).toString()}`
+          )
+        }
+      } else {
+        const result = Row.check(row.type, term)
+        if (result.error) {
+          throw new TypeError(
+            `Row type conflict ${this.relation.id} ${rowID} : ${result.error.message}`
+          )
+        }
+      }
+    }
+  }
+}

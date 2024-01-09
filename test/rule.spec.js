@@ -46,9 +46,9 @@ export const testRules = {
   'test wheel rule': async (assert) => {
     const db = DB.Memory.create(employeeDB)
 
-    const person = DB.Schema.number()
-    const manager = DB.Schema.number()
-    const employee = DB.Schema.number()
+    const person = DB.Schema.integer()
+    const manager = DB.Schema.integer()
+    const employee = DB.Schema.integer()
     const wheel = rule({
       match: { person },
       where: [
@@ -57,7 +57,7 @@ export const testRules = {
       ],
     })
 
-    const who = DB.Schema.number()
+    const who = DB.Schema.integer()
     const name = DB.Schema.string()
 
     const matches = DB.evaluate(db, {
@@ -86,18 +86,18 @@ export const testRules = {
   'only leaves near': async (assert) => {
     const db = DB.Memory.create(employeeDB)
     const employee = {
-      id: DB.Schema.number(),
+      id: DB.Schema.integer(),
       name: DB.Schema.string(),
       address: DB.Schema.string(),
     }
 
     const coworker = {
-      id: DB.Schema.number(),
+      id: DB.Schema.integer(),
       name: DB.Schema.string(),
       address: DB.Schema.string(),
     }
 
-    const operand = DB.Schema.number()
+    const operand = DB.Schema.integer()
     const same = rule({
       match: {
         operand,
