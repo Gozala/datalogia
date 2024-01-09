@@ -11,9 +11,8 @@ import * as Digest from 'multiformats/hashes/digest'
  */
 export const create = ({ facts } = { facts: [] }) => {
   const memory = new Memory()
-  const { data } = memory
   for (const fact of facts) {
-    assert(data, fact)
+    assert(memory, fact)
   }
 
   return memory
