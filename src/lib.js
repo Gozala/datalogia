@@ -1,210 +1,19 @@
 import * as API from './api.js'
 export * from './api.js'
-import * as Link from 'multiformats/link'
-import { getPropertyKey, PROPERTY_KEY, is as isVariable } from './variable.js'
+import { getPropertyKey, is as isVariable } from './variable.js'
 export { when } from './predicate.js'
 import { isBlank, dependencies } from './dsl.js'
 import * as Rule from './rule.js'
 export * as Memory from './memory.js'
 export * from './dsl.js'
-import { entries } from './util.js'
+import { entries } from './object.js'
+import { equal } from './constant.js'
 export { Rule }
 export { API }
-
-/**
- * @typedef {number} Integer
- * @typedef {number} Float
- * @typedef {Readonly<Uint8Array>} Bytes
- * @typedef {string} UTF8
- *
- * @typedef {string|Float|Integer} Entity
- * @typedef {Integer|Float|Bytes|UTF8} Attribute
- * @typedef {API.Constant} Data
- */
-
-/**
- * Database is represented as a collection of facts.
- * @typedef {object} Database
- * @property {number} [entityCount]
- * @property {readonly Fact[]} facts
- */
-
-/**
- * An atomic fact in the database, associating an `entity` , `attribute` ,
- * `value`.
- *
- * - `entity` - The first component is `entity` that specifies who or what the fact is about.
- * - `attribute` - Something that can be said about an `entity` . An attribute has a name,
- *    e.g. "firstName" and a value type, e.g. string, and a cardinality.
- * - `value` - Something that does not change e.g. 42, "John", true. Fact relates
- *    an `entity` to a particular `value` through an `attribute`.ich
- *
- * @typedef {readonly [entity: Entity, attribute: Attribute, value: Data]} Fact
- */
-
-/**
- * Variable is placeholder for a value that will be matched against by the
- * query engine. It is represented as an abstract `Reader` that will attempt
- * to read arbitrary {@type Data} and return result with either `ok` of the
- * `Type` or an `error`.
- *
- * Variables will be assigned unique `bindingKey` by a query engine that will
- * be used as unique identifier for the variable.
- *
- * @template {Data} [Type=Data]
- * @typedef {API.TryFrom<{ Self: Type, Input: Data }> & {[PROPERTY_KEY]?: PropertyKey}} Variable
- */
-
-/**
- * Term is either a constant or a {@link Variable}. Terms are used to describe
- * predicates of the query.
- *
- * @typedef {Data|Variable} Term
- */
-
-/**
- * Describes association between `entity`, `attribute`, `value` of the
- * {@link Fact}. Each component of the {@link Relation} is a {@link Term}
- * that is either a constant or a {@link Variable}.
- *
- * Query engine during execution will attempt to match {@link Relation} against
- * all facts in the database and unify {@link Variable}s across them to identify
- * all possible solutions.
- *
- * @typedef {[entity: Term, attribute: Term, value: Term]} Relation
- */
-
-/**
- * Selection describes set of (named) variables that query engine will attempt
- * to find values for that satisfy the query.
- *
- * @typedef {Record<PropertyKey, Variable>} Selector
- */
-
-/**
- * @template {Selector} Selection
- * @typedef {{[Key in keyof Selection]: Selection[Key] extends Variable<infer T> ? T : never}} InferMatch
- */
-
-/**
- * @template {Selector} Selection
- * @typedef {{[Key in keyof Selection]: Selection[Key] extends Variable<infer T> ? (Variable<T> | T) : never}} InferState
- */
 
 const ENTITY = 0
 const ATTRIBUTE = 1
 const VALUE = 2
-
-/**
- * Attempts to match given `fact` against the given `relation`, if it is matches
- * returns `state` extended with values for all the variables that were matched,
- * otherwise returns `null`.
- * 
- * @template {Selector} Selection
-
- * @param {Relation} relation
- * @param {Fact} fact
- * @param {InferState<Selection>} state
- * @returns {InferState<Selection>|null}
- */
-export const matchRelation = (relation, fact, state) => {
-  /** @type {InferState<Selection>|null} */
-  let match = state
-
-  // Match entity, attribute and value on by one. If one of them does not match
-  // match fails and we return null.
-  match = matchTerm(relation[ENTITY], fact[ENTITY], match)
-  match = match && matchTerm(relation[ATTRIBUTE], fact[ATTRIBUTE], match)
-  match = match && matchTerm(relation[VALUE], fact[VALUE], match)
-
-  return match
-}
-
-/**
- * Attempts to match given `term` against the given fact `data`, if `data`
- * matches the term returns `state` extended with binding corresponding to the
- * `term` otherwise returns `null`.
- *
- * @template {Selector} Selection
- *
- * @param {Term} term
- * @param {Data} data
- * @param {InferState<Selection>} state
- */
-export const matchTerm = (term, data, state) =>
-  // We have a special `_` variable that matches anything. Unlike all other
-  // variables it is not unified across all the relations which is why we treat
-  // it differently and do add no bindings for it.
-  isBlank(term)
-    ? state
-    : // All other variables get unified which is why we attempt to match them
-      // against the data in the current state.
-      isVariable(term)
-      ? matchVariable(term, data, state)
-      : // If term is a constant we simply ensure that it matches the data.
-        matchConstant(term, data, state)
-
-/**
- * @template State
- *
- * @param {Data} constant
- * @param {Data} data
- * @param {State} context
- * @returns {State|null}
- */
-export const matchConstant = (constant, data, context) =>
-  constant === data || equal(context, data) ? context : null
-
-/**
- * @param {unknown} expected
- * @param {unknown} actual
- * @returns {boolean}
- */
-const equal = (expected, actual) => {
-  let length = /** @type {{byteLength?:number}} */ (expected)?.byteLength
-  if (
-    length != null &&
-    length === /** @type {{byteLength?:number}} */ (actual)?.byteLength
-  ) {
-    // If both expected and actual have `byteLength` property we assume they are
-    // Uint8Array's and proceed with byte by byte comparison. This assumption may
-    // be incorrect if at runtime type requirements are not upheld, but we don't
-    // we do not support that use case.
-    const source = /** @type {Uint8Array} */ (expected)
-    const target = /** @type {Uint8Array} */ (actual)
-    let offset = 0
-    while (offset < length) {
-      if (source[offset] !== target[offset]) {
-        return false
-      }
-      offset++
-    }
-    return true
-  }
-
-  return false
-}
-
-/**
- * @template {Selector} Selection
- *
- * @param {Variable} variable
- * @param {Data} data
- * @param {InferState<Selection>} context
- * @returns {InferState<Selection>|null}
- */
-export const matchVariable = (variable, data, context) => {
-  // Get key this variable is bound to in the context
-  const key = getPropertyKey(variable)
-  // If context already contains binding for we attempt to unify it with the
-  // new data otherwise we bind the data to the variable.
-  if (key in context) {
-    return matchTerm(context[key], data, context)
-  } else {
-    const result = variable.tryFrom(data)
-    return result.error ? null : { ...context, [key]: result.ok }
-  }
-}
 
 /**
  * @template {API.Constant} T
@@ -227,96 +36,15 @@ export const resolveBinding = (variable, frame) => {
 }
 
 /**
- * Goes over all the database facts and attempts to match each one against the
- * given `relation` and current `state`. For every match we collect matched
- * state. Function returns all the matches if any.
- *
- * @template {Selector} Selection
- * @param {Relation} relation
- * @param {Database} db
- * @param {InferState<Selection>} state
- * @returns {InferState<Selection>[]}
- */
-const queryRelation = (relation, { facts }, state) => {
-  const matches = []
-  for (const fact of facts) {
-    const match = matchRelation(relation, fact, state)
-    if (match) {
-      matches.push(match)
-    }
-  }
-
-  return matches
-}
-
-/**
- * @template {Selector} Selection
- * @param {Database} db
- * @param {Relation[]} relations
- * @param {InferState<Selection>} state
- * @returns {InferState<Selection>[]}
- */
-export const queryRelations = (db, relations, state) =>
-  // Here we start with an initial state (which contains no bindings) and create
-  // an extended state for every fact that matched the relation. Then we take
-  // all those states and extends them by matching all facts against next
-  // relation. If state been extended conflicts with the relation we drop that
-  // state and consider next one. On every relation we will map 1 state to 0 or
-  // more extended states which is why we flatten results and repeat the process
-  // with the next relation. Once we consider all relations we will end up with
-  // a list of matched states containing values for all variables.
-  relations.reduce(
-    /**
-     * @param {InferState<Selection>[]} matches
-     * @param {Relation} relation
-     * @returns
-     */
-    (matches, relation) =>
-      matches.flatMap((match) => queryRelation(relation, db, match)),
-    [state]
-  )
-
-/**
- * Takes a selector which is set of variables that will be used in the query
- * conditions. Returns a query builder that has `.where` method for specifying
- * the query conditions.
- *
- * @example
- * ```ts
- * const moviesAndTheirDirectorsThatShotArnold = select({
- *    directorName: Schema.string(),
- *    movieTitle: Schema.string(),
- * }).where(({ directorName, movieTitle }) => {
- *    const arnoldId = Schema.number()
- *    const movie = Schema.number()
- *    const director = Schema.number()
- *
- *    return [
- *      [arnold, "person/name", "Arnold Schwarzenegger"],
- *      [movie, "movie/cast", arnoldId],
- *      [movie, "movie/title", movieTitle],
- *      [movie, "movie/director", director],
- *      [director, "person/name", directorName]
- *   ]
- * })
- * ```
- *
- * @template {Selector} Selection
- * @param {Selection} selector
- * @returns {QueryBuilder<Selection>}
- */
-export const select = (selector) => new QueryBuilder({ select: selector })
-
-/**
- * @template {Selector} Selection
- * @param {Database} db
+ * @template {API.Selector} Selection
+ * @param {API.Querier} db
  * @param {object} source
  * @param {Selection} source.select
- * @param {Iterable<Relation>} source.where
- * @returns {InferMatch<Selection>[]}
+ * @param {Iterable<API.Pattern>} source.where
+ * @returns {API.InferFrame<Selection>[]}
  */
 export const query = (db, { select, where }) => {
-  const clauses = []
+  const patterns = []
 
   /**
    * Selected fields may not explicitly appear in the where clause. To
@@ -352,112 +80,43 @@ export const query = (db, { select, where }) => {
    */
   for (const variable of Object.values(select)) {
     for (const clause of dependencies(variable)) {
-      clauses.push(clause)
+      patterns.push(clause)
     }
   }
 
-  const matches = queryRelations(
-    db,
-    [...where, ...clauses],
-    // It would make sense to populate this with corresponding variables instead
-    // of passing empty object and pretending it is not. For now we we keep it
-    // simple and we'll deal with this later.
-    /** @type {InferState<Selection>} */ ({})
+  const matches = evaluate(db, {
+    and: [...where, ...patterns].map((pattern) => ({ match: pattern })),
+  })
+  // const matches = queryPatterns(
+  //   db,
+  //   [...where, ...patterns],
+  //   // It would make sense to populate this with corresponding variables instead
+  //   // of passing empty object and pretending it is not. For now we we keep it
+  //   // simple and we'll deal with this later.
+  //   /** @type {API.InferFrame<Selection>} */ ({})
+  // )
+
+  return [...matches].map((match) =>
+    materialize(select, /** @type {API.InferFrame<Selection>} */ (match))
   )
-
-  return matches.map((match) => materialize(select, match))
-}
-/**
- * A query builder API which is designed to enable type inference of the query
- * and the results it will produce.
- *
- * @template {Selector} Select
- */
-class QueryBuilder {
-  /**
-   * @param {object} source
-   * @param {Select} source.select
-   */
-  constructor({ select }) {
-    this.select = select
-  }
-  /**
-   * @param {(variables: Select) => Iterable<Relation>} conditions
-   * @returns {Query<Select>}
-   */
-  where(conditions) {
-    return new Query({
-      select: this.select,
-      where: [...conditions(this.select)],
-    })
-  }
 }
 
 /**
- * @template {Selector} Selection
- */
-class Query {
-  /**
-   * @param {object} model
-   * @param {Selection} model.select
-   * @param {(Relation)[]} model.where
-   */
-  constructor(model) {
-    this.model = model
-  }
-
-  /**
-   *
-   * @param {Database} db
-   * @returns {InferMatch<Selection>[]}
-   */
-  execute(db) {
-    return query(db, this.model)
-  }
-}
-
-/**
- * @template {Selector} Selection
+ * @template {API.Selector} Selection
  * @param {Selection} select
- * @param {InferState<Selection>} context
- * @returns {InferMatch<Selection>}
+ * @param {API.InferFrame<Selection>} frame
+ * @returns {API.InferFrame<Selection>}
  */
-const materialize = (select, context) =>
-  /** @type {InferMatch<Selection>} */
+const materialize = (select, frame) =>
+  /** @type {API.InferFrame<Selection>} */
   (
     Object.fromEntries(
       entries(select).map(([name, variable]) => [
         name,
-        isVariable(variable) ? context[getPropertyKey(variable)] : variable,
+        isVariable(variable) ? frame[getPropertyKey(variable)] : variable,
       ])
     )
   )
-
-/**
- * @template {Data} [T=Data]
- * @template {PropertyKey} [Key=PropertyKey]
- * @extends {Variable<T>}
- */
-class SelectedVariable {
-  static lastKey = 0
-
-  /**
-   * @param {object} source
-   * @param {Key} source.key
-   * @param {Variable<T>} source.schema
-   */
-  constructor({ key, schema }) {
-    this.propertyKey = key
-    this.schema = schema
-  }
-
-  /**
-   * @param {Data} value
-   */
-  from(value) {
-    return this.schema.tryFrom(value)
-  }
-}
 
 /**
  *
@@ -609,6 +268,9 @@ const iterateFacts = (db, [entity, attribute, value]) =>
   })
 
 /**
+ * Attempts to match given `fact` against the given `pattern`, if it matches
+ * yields extended `frame` with values for all the pattern variables otherwise
+ * yields no frames.
  *
  * @param {API.Fact} fact
  * @param {API.Pattern} pattern
@@ -629,26 +291,27 @@ const matchFact = function* (fact, pattern, frame) {
  * @returns {API.Result<API.Frame, Error>}
  */
 const matchPattern = (pattern, [entity, attribute, value], frame) => {
-  let result = matchPatternTerm(pattern[ENTITY], entity, frame)
+  let result = matchTerm(pattern[ENTITY], entity, frame)
   result = result.error
     ? result
-    : matchPatternTerm(pattern[ATTRIBUTE], attribute, result.ok)
+    : matchTerm(pattern[ATTRIBUTE], attribute, result.ok)
 
-  result = result.error
-    ? result
-    : matchPatternTerm(pattern[VALUE], value, result.ok)
+  result = result.error ? result : matchTerm(pattern[VALUE], value, result.ok)
 
   return result
 }
 
 /**
+ * Attempts to match given `term` against the given fact `value`, if `value`
+ * matches the term returns succeeds with extended `frame` otherwise returns
+ * an error.
  *
  * @param {API.Term} term
- * @param {API.Constant} data
+ * @param {API.Constant} value
  * @param {API.Frame} frame
  * @returns {API.Result<API.Frame, Error>}
  */
-const matchPatternTerm = (term, data, frame) =>
+const matchTerm = (term, value, frame) =>
   // We have a special `_` variable that matches anything. Unlike all other
   // variables it is not unified across all the relations which is why we treat
   // it differently and do add no bindings for it.
@@ -657,22 +320,22 @@ const matchPatternTerm = (term, data, frame) =>
     : // All other variables get unified which is why we attempt to match them
       // against the data in the current state.
       isVariable(term)
-      ? matchPatternVariable(term, data, frame)
+      ? matchVariable(term, value, frame)
       : // If term is a constant we simply ensure that it matches the data.
-        matchLiteral(term, data, frame)
+        matchConstant(term, value, frame)
 
 /**
  * @template {API.Frame} State
  *
  * @param {API.Constant} constant
- * @param {API.Constant} data
+ * @param {API.Constant} value
  * @param {State} frame
  * @returns {API.Result<State, Error>}
  */
-export const matchLiteral = (constant, data, frame) =>
-  constant === data || equal(constant, data)
+export const matchConstant = (constant, value, frame) =>
+  constant === value || equal(constant, value)
     ? { ok: frame }
-    : { error: new RangeError(`Expected ${constant} got ${data}`) }
+    : { error: new RangeError(`Expected ${constant} got ${value}`) }
 
 /**
  *
@@ -681,13 +344,13 @@ export const matchLiteral = (constant, data, frame) =>
  * @param {API.Frame} frame
  * @returns {API.Result<API.Frame, Error>}
  */
-export const matchPatternVariable = (variable, data, frame) => {
+export const matchVariable = (variable, data, frame) => {
   // Get key this variable is bound to in the context
   const key = getPropertyKey(variable)
   // If context already contains binding for we attempt to unify it with the
   // new data otherwise we bind the data to the variable.
   if (key in frame) {
-    return matchPatternTerm(frame[key], data, frame)
+    return matchTerm(frame[key], data, frame)
   } else {
     const result = variable.tryFrom(data)
     return result.error ? result : { ok: { ...frame, [key]: result.ok } }
@@ -757,11 +420,11 @@ const unifyMatch = (binding, variable, frame) => {
 const extendIfPossible = (variable, value, frame) => {
   const binding = resolveBinding(variable, frame)
   if (!binding.error) {
-    return matchPatternTerm(value, binding.ok, frame)
+    return matchTerm(value, binding.ok, frame)
   } else if (isVariable(value)) {
     const binding = resolveBinding(value, frame)
     if (!binding.error) {
-      return matchPatternTerm(variable, binding.ok, frame)
+      return matchTerm(variable, binding.ok, frame)
     } else {
       return { ok: { ...frame, [getPropertyKey(variable)]: value } }
     }

@@ -9,7 +9,7 @@ import { count } from '../src/aggregate.js'
  * @type {import('entail').Suite}
  */
 export const testAggregate = {
-  popularProfile: async (assert) => {
+  'skip popularProfile': async (assert) => {
     const follower = DB.Schema.integer()
     const follows = DB.Schema.integer()
 

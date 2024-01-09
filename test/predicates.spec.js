@@ -1,5 +1,7 @@
 import * as DB from 'datalogia'
-import * as testDB from './microshaft-facts.js'
+import * as microshaft from './microshaft-facts.js'
+
+const testDB = DB.Memory.create(microshaft)
 
 /**
  * @type {import('entail').Suite}

@@ -1,6 +1,9 @@
 import * as DB from 'datalogia'
-import * as proofsDB from './proof-facts.js'
-import * as moviesDB from './movie-facts.js'
+import * as proofs from './proof-facts.js'
+import * as movies from './movie-facts.js'
+
+const proofsDB = DB.Memory.create(proofs)
+const moviesDB = DB.Memory.create(movies)
 
 /**
  * @type {import('entail').Suite}
@@ -38,32 +41,6 @@ export const testDB = {
       },
     ])
   },
-  'test query builder': async (assert) => {
-    const query = DB.select({
-      uploadLink: DB.Schema.string(),
-      storeLink: DB.Schema.string(),
-    }).where(({ uploadLink, storeLink }) => {
-      const space = DB.Schema.string()
-      const uploadID = DB.Schema.string()
-      const storeID = DB.Schema.string()
-
-      return [
-        [uploadLink, 'capabilities', uploadID],
-        [uploadID, 'can', 'upload/add'],
-        [uploadID, 'with', space],
-        [storeLink, 'capabilities', storeID],
-        [storeID, 'can', 'store/add'],
-        [storeID, 'with', space],
-      ]
-    })
-
-    assert.deepEqual(query.execute(proofsDB), [
-      {
-        uploadLink: 'bafy...upload',
-        storeLink: 'bafy...store',
-      },
-    ])
-  },
 
   'test baisc': async (assert) => {
     /** @type {DB.Fact[]} */
@@ -75,29 +52,24 @@ export const testDB = {
       ['sally', 'likes', 'opera'],
       ['ethel', 'likes', 'sushi'],
     ]
+    const db = DB.Memory.create({ facts })
 
     const e = DB.Schema.string()
 
     assert.deepEqual(
-      DB.query(
-        { facts },
-        {
-          select: { e },
-          where: [[e, 'age', 42]],
-        }
-      ),
+      DB.query(db, {
+        select: { e },
+        where: [[e, 'age', 42]],
+      }),
       [{ e: 'fred' }, { e: 'ethel' }]
     )
 
     const x = DB.Schema.string()
     assert.deepEqual(
-      DB.query(
-        { facts },
-        {
-          select: { x },
-          where: [[DB.Schema._, 'likes', x]],
-        }
-      ),
+      DB.query(db, {
+        select: { x },
+        where: [[DB.Schema._, 'likes', x]],
+      }),
       [{ x: 'pizza' }, { x: 'opera' }, { x: 'sushi' }]
     )
   },

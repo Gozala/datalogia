@@ -1,4 +1,13 @@
 import { PROPERTY_KEY } from './variable.js'
+import { ByteView, Link as IPLDLink, Version } from 'multiformats'
+
+export interface Link<
+  Data extends {} | null = {} | null,
+  Format extends number = number,
+  Alg extends number = number,
+> extends IPLDLink<Data, Format, Alg, 1> {
+  ['/']: ByteView<this>
+}
 
 /**
  * Generic reader interface that can be used to read `O` value form the
@@ -111,23 +120,45 @@ export type New<T, Type = Tagged<T>> = Tagged<T>[keyof Tagged<T>] &
 export type Int32 = New<{ Int32: number }>
 export type Float32 = New<{ Float32: number }>
 export type Int64 = New<{ Int64: bigint }>
-export type Link<T extends {} | null = {} | null> = New<{ Link: Uint8Array }, T>
 
 export type Bytes = Uint8Array
 export type Constant = boolean | Int32 | Float32 | Int64 | string | Bytes | Link
 
+/**
+ * Variable is placeholder for a value that will be matched against by the
+ * query engine. It is represented as an abstract `Reader` that will attempt
+ * to read arbitrary {@type Data} and return result with either `ok` of the
+ * `Type` or an `error`.
+ *
+ * Variables will be assigned unique `bindingKey` by a query engine that will
+ * be used as unique identifier for the variable.
+ */
 export interface Variable<T extends Constant = Constant>
   extends TryFrom<{ Self: T; Input: Constant }> {
   [PROPERTY_KEY]?: PropertyKey
 }
 
+/**
+ * Term is either a constant or a {@link Variable}. Terms are used to describe
+ * predicates of the query.
+ */
 export type Term<T extends Constant = Constant> = T | Variable<T>
 
+/**
+ * Describes association between `entity`, `attribute`, `value` of the
+ * {@link Fact}. Each component of the {@link Relation} is a {@link Term}
+ * that is either a constant or a {@link Variable}.
+ *
+ * Query engine during execution will attempt to match {@link Relation} against
+ * all facts in the database and unify {@link Variable}s across them to identify
+ * all possible solutions.
+ */
 export type Pattern = [
   entity: Term<Entity>,
   attribute: Term<Attribute>,
   value: Term<Constant>,
 ]
+
 export type Query = Variant<{
   // and clause
   and: Query[]
@@ -160,6 +191,17 @@ export type Frame = Record<PropertyKey, Term>
 
 export type Entity = string | Float32 | Int32 | Int64 | Bytes
 export type Attribute = string | Float32 | Int32 | Int64 | Bytes
+
+/**
+ * An atomic fact in the database, associating an `entity` , `attribute` ,
+ * `value`.
+ *
+ * - `entity` - The first component is `entity` that specifies who or what the fact is about.
+ * - `attribute` - Something that can be said about an `entity` . An attribute has a name,
+ *    e.g. "firstName" and a value type, e.g. string, and a cardinality.
+ * - `value` - Something that does not change e.g. 42, "John", true. Fact relates
+ *    an `entity` to a particular `value` through an `attribute`.ich
+ */
 export type Fact = readonly [
   entity: Entity,
   attribute: Attribute,
@@ -220,9 +262,13 @@ export type InferBindings<T extends Bindings> = {
   [K in keyof T]: T[K] extends Variable<infer U> ? U : never
 }
 
-export interface Atom extends Record<PropertyKey, Term> {}
+/**
+ * Selection describes set of (named) variables that query engine will attempt
+ * to find values for that satisfy the query.
+ */
+export interface Selector extends Record<PropertyKey, Term> {}
 
-export type Selection = Atom | Variable<Link<Record<PropertyKey, Constant>>>
+export type Selection = Selector | Variable<Link<Record<PropertyKey, Constant>>>
 
 export interface Match {
   match: Bindings
@@ -238,7 +284,7 @@ export type RulePredicate = Variant<{
 }>
 
 export interface Not {
-  not: Atom
+  not: Selector
   match?: void
   rule?: void
 }
@@ -352,3 +398,7 @@ export type InferType<T extends RowType> = T['Any'] extends TryFrom<any>
               : T['Link'] extends TryFrom<any>
                 ? Link
                 : never
+
+export type InferFrame<Selection extends Selector> = {
+  [Key in keyof Selection]: Selection[Key] extends Term<infer T> ? T : never
+}

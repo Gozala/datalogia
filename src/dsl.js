@@ -1,7 +1,7 @@
 import * as API from './api.js'
 import { PROPERTY_KEY, getPropertyKey } from './variable.js'
 import * as Link from './link.js'
-import { entries } from './util.js'
+import { entries } from './object.js'
 
 /**
  * @param {unknown} x
@@ -123,6 +123,9 @@ export class Schema {
     return new BooleanSchema()
   }
 
+  /**
+   * @type {API.Variable<any>} T
+   */
   static _ = new Schema({ key: '_' })
 }
 
@@ -153,7 +156,7 @@ class SchemaPipeline extends Schema {
 }
 
 /**
- * @template {{}} T
+ * @template {{}|null} T
  * @extends {Schema<API.Link<T>>}
  * @implements {API.TryFrom<{ Self: API.Link<T>, Input: API.Constant }>}
  */
@@ -163,7 +166,7 @@ class LinkSchema extends Schema {
    * @returns {API.Result<API.Link<T>, RangeError>}
    */
   tryFrom(value) {
-    if (Link.isLink(value)) {
+    if (Link.is(value)) {
       return { ok: /** @type {any} */ (value) }
     } else {
       return { error: new RangeError(`Expected number, got ${typeof value}`) }
@@ -326,7 +329,7 @@ class BooleanSchema extends Schema {
 }
 
 /**
- * @param {API.Variable} variable
+ * @param {API.Term} variable
  */
 export const dependencies = function* (variable) {
   // If variable is the data attribute we need to make sure it is matched

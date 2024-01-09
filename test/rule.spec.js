@@ -83,7 +83,7 @@ export const testRules = {
     )
   },
 
-  'only leaves near': async (assert) => {
+  'leaves near': async (assert) => {
     const db = DB.Memory.create(employeeDB)
     const employee = {
       id: DB.Schema.integer(),
