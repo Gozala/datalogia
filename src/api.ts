@@ -136,11 +136,21 @@ export type Pattern = [
   value: Term<Constant>,
 ]
 export type Query = Variant<{
-  match: Pattern
+  // and clause
   and: Query[]
+  // or clause
   or: Query[]
+  // negation
   not: Query
+  // expression clause
+  // pattern match
+  match: Pattern
+  // predicate
   when: Predicate
+  // rule application
+  apply: ApplyRule
+  // ignore
+  ok: []
 }>
 
 export type Condition = Variant<{
@@ -194,14 +204,21 @@ export type Constraint = Variant<{
 
 export type Rule = DeductiveRule | InductiveRule
 
+export interface ApplyRule {
+  input: Frame
+  rule: Rule
+}
+
 export interface DeductiveRule {
-  select: Bindings
-  where: RulePredicate[]
+  match: Bindings
+  // where: RulePredicate[]
+  where: Query
 }
 
 export interface InductiveRule {
-  select: Bindings
-  where: RulePredicate[]
+  match: Bindings
+  // where: RulePredicate[]
+  where: Query
 }
 
 export interface Bindings extends Record<PropertyKey, Variable> {}
@@ -234,11 +251,6 @@ export interface Not {
 }
 
 export type Combinator = Variant<{}>
-
-export interface Premise {
-  bindings: Bindings
-  rule: Rule
-}
 
 export interface Predicate<Input = Frame> {
   match(input: Input): Result<{}, Error>
