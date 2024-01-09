@@ -2,7 +2,9 @@ import * as API from './api.js'
 export * from './api.js'
 import * as Link from 'multiformats/link'
 export { when } from './predicate.js'
+import * as Rule from './rule.js'
 export * as Memory from './memory.js'
+export { Rule }
 export { API }
 
 /**
@@ -1204,6 +1206,10 @@ export const evaluate = function* (db, query, frames = [{}]) {
     yield* evaluateNot(db, query.not, frames)
   } else if (query.when) {
     yield* evaluateWhen(db, query.when, frames)
+  } else if (query.ok) {
+    yield* evaluateYes(db, query.ok, frames)
+  } else if (query.apply) {
+    yield* evaluateRule(db, query.apply, frames)
   } else {
     yield* evaluateMatch(db, query.match, frames)
   }
@@ -1260,6 +1266,14 @@ export const evaluateWhen = function* (db, predicate, frames) {
 }
 
 /**
+ *
+ * @param {API.Querier} db
+ * @param {{}} ignore
+ * @param {Iterable<API.Frame>} frames
+ */
+export const evaluateYes = (db, ignore, frames) => frames
+
+/**
  * @param {Iterable<unknown>} iterable
  */
 const isEmpty = (iterable) => {
@@ -1299,6 +1313,18 @@ const evaluateMatch = function* (db, pattern, frames) {
     for (const fact of facts) {
       yield* matchFact(fact, pattern, frame)
     }
+  }
+}
+
+/**
+ *
+ * @param {API.Querier} db
+ * @param {API.Query['apply'] & {}} rule
+ * @param {Iterable<API.Frame>} frames
+ */
+const evaluateRule = function* (db, rule, frames) {
+  for (const frame of frames) {
+    yield* matchRule(db, rule, frame)
   }
 }
 
@@ -1396,5 +1422,142 @@ export const matchPatternVariable = (variable, data, frame) => {
   } else {
     const result = variable.tryFrom(data)
     return result.error ? result : { ok: { ...frame, [key]: result.ok } }
+  }
+}
+
+/**
+ *
+ * @param {API.Querier} db
+ * @param {API.ApplyRule} rule
+ * @param {API.Frame} frame
+ */
+const matchRule = function* (db, rule, frame) {
+  const { match, where } = Rule.setup(rule.rule)
+
+  // Unify passed rule bindings with the rule match pattern.
+  const result = unifyRule(rule.input, match, frame)
+  if (!result.error) {
+    yield* evaluate(db, where, [result.ok])
+  }
+}
+
+/**
+ *
+ * @param {API.Frame} input
+ * @param {API.Bindings} match
+ * @param {API.Frame} frame
+ * @returns {API.Result<API.Frame, Error>}
+ */
+const unifyRule = (input, match, frame) => {
+  for (const [key, variable] of Object.entries(match)) {
+    const result = unifyMatch(input[key], variable, frame)
+    if (result.error) {
+      return result
+    }
+    frame = result.ok
+  }
+
+  return { ok: frame }
+}
+
+/**
+ * @param {API.Term} binding
+ * @param {API.Variable} variable
+ * @param {API.Frame} frame
+ * @returns
+ */
+const unifyMatch = (binding, variable, frame) => {
+  if (binding === variable) {
+    return { ok: frame }
+  } else if (isVariable(binding)) {
+    return extendIfPossible(binding, variable, frame)
+  } else if (isVariable(variable)) {
+    return extendIfPossible(variable, binding, frame)
+  } else {
+    return { error: new RangeError(`Expected ${binding} got ${variable}`) }
+  }
+}
+
+/**
+ * @template {API.Constant} T
+ * @param {API.Variable<T>} variable
+ * @param {API.Term<T>} value
+ * @param {API.Frame} frame
+ * @returns {API.Result<API.Frame, Error>}
+ */
+const extendIfPossible = (variable, value, frame) => {
+  const binding = resolveBinding(variable, frame)
+  if (!binding.error) {
+    return matchPatternTerm(value, binding.ok, frame)
+  } else if (isVariable(value)) {
+    const binding = resolveBinding(value, frame)
+    if (!binding.error) {
+      return matchPatternTerm(variable, binding.ok, frame)
+    } else {
+      return { ok: { ...frame, [getPropertyKey(variable)]: value } }
+    }
+  } else if (isDependent(value, variable, frame)) {
+    return { error: new Error(`Can not self reference`) }
+  } else {
+    return { ok: { ...frame, [getPropertyKey(variable)]: value } }
+  }
+}
+
+/**
+ *
+ * @param {API.Query} query
+ * @param {API.Variable} variable
+ * @param {API.Frame} frame
+ */
+const isDependent = (query, variable, frame) => {
+  for (const each of iterateVariables(query)) {
+    if (each === variable) {
+      return true
+    } else {
+      const binding = resolveBinding(each, frame)
+      if (!binding.error) {
+        if (isDependent(binding.ok, variable, frame)) {
+          return true
+        }
+      }
+    }
+  }
+  return false
+}
+
+/**
+ * @param {API.Query} query
+ * @returns {Iterable<API.Variable>}
+ */
+const iterateVariables = function* (query) {
+  if (query.and) {
+    for (const conjunct of query.and) {
+      yield* iterateVariables(conjunct)
+    }
+  } else if (query.or) {
+    for (const disjunct of query.or) {
+      yield* iterateVariables(disjunct)
+    }
+  } else if (query.not) {
+    yield* iterateVariables(query.not)
+  } else if (query.when) {
+  } else if (query.ok) {
+  } else if (query.apply) {
+    for (const binding of Object.values(query.apply.input)) {
+      if (isVariable(binding)) {
+        yield binding
+      }
+    }
+  } else {
+    const [entity, attribute, value] = query.match
+    if (isVariable(entity)) {
+      yield entity
+    }
+    if (isVariable(attribute)) {
+      yield attribute
+    }
+    if (isVariable(value)) {
+      yield value
+    }
   }
 }
