@@ -1,13 +1,16 @@
 import * as API from './api.js'
-export * from './api.js'
-import { getPropertyKey, is as isVariable } from './variable.js'
-export { when } from './predicate.js'
+import * as Variable from './variable.js'
 import { isBlank, dependencies } from './dsl.js'
 import * as Rule from './rule.js'
-export * as Memory from './memory.js'
-export * from './dsl.js'
+import * as Bindings from './bindings.js'
 import { entries } from './object.js'
 import { equal } from './constant.js'
+
+export * from './api.js'
+export * as Memory from './memory.js'
+export { when } from './when.js'
+export * from './dsl.js'
+export * as Constant from './constant.js'
 export { Rule }
 export { API }
 
@@ -16,32 +19,12 @@ const ATTRIBUTE = 1
 const VALUE = 2
 
 /**
- * @template {API.Constant} T
- * @param {API.Variable<T>} variable
- * @param {API.Frame} frame
- * @returns {API.Result<T, RangeError>}
- */
-export const resolveBinding = (variable, frame) => {
-  // Get key this variable is bound to in the context
-  const key = getPropertyKey(variable)
-
-  if (key in frame) {
-    const binding = frame[key]
-    if (!isVariable(binding)) {
-      return { ok: /** @type {T} */ (binding) }
-    }
-  }
-
-  return { error: new RangeError(`Variable is not bound yet`) }
-}
-
-/**
  * @template {API.Selector} Selection
  * @param {API.Querier} db
  * @param {object} source
  * @param {Selection} source.select
- * @param {Iterable<API.Pattern>} source.where
- * @returns {API.InferFrame<Selection>[]}
+ * @param {Iterable<API.Clause>} source.where
+ * @returns {API.InferBindings<Selection>[]}
  */
 export const query = (db, { select, where }) => {
   const patterns = []
@@ -85,35 +68,36 @@ export const query = (db, { select, where }) => {
   }
 
   const matches = evaluate(db, {
-    and: [...where, ...patterns].map((pattern) => ({ match: pattern })),
+    and: [...where, ...patterns],
   })
-  // const matches = queryPatterns(
-  //   db,
-  //   [...where, ...patterns],
-  //   // It would make sense to populate this with corresponding variables instead
-  //   // of passing empty object and pretending it is not. For now we we keep it
-  //   // simple and we'll deal with this later.
-  //   /** @type {API.InferFrame<Selection>} */ ({})
-  // )
 
   return [...matches].map((match) =>
-    materialize(select, /** @type {API.InferFrame<Selection>} */ (match))
+    materialize(select, /** @type {API.InferBindings<Selection>} */ (match))
   )
 }
 
 /**
+ *
+ * @param {API.Pattern} pattern
+ * @returns {API.Clause}
+ */
+export const match = (pattern) => ({
+  match: pattern,
+})
+
+/**
  * @template {API.Selector} Selection
  * @param {Selection} select
- * @param {API.InferFrame<Selection>} frame
- * @returns {API.InferFrame<Selection>}
+ * @param {API.InferBindings<Selection>} bindings
+ * @returns {API.InferBindings<Selection>}
  */
-const materialize = (select, frame) =>
-  /** @type {API.InferFrame<Selection>} */
+const materialize = (select, bindings) =>
+  /** @type {API.InferBindings<Selection>} */
   (
     Object.fromEntries(
-      entries(select).map(([name, variable]) => [
+      entries(select).map(([name, term]) => [
         name,
-        isVariable(variable) ? frame[getPropertyKey(variable)] : variable,
+        Bindings.get(bindings, term),
       ])
     )
   )
@@ -121,9 +105,9 @@ const materialize = (select, frame) =>
 /**
  *
  * @param {API.Querier} db
- * @param {API.Query} query
- * @param {Iterable<API.Frame>} frames
- * @returns {Iterable<API.Frame>}
+ * @param {API.Clause} query
+ * @param {Iterable<API.Bindings>} frames
+ * @returns {Iterable<API.Bindings>}
  */
 export const evaluate = function* (db, query, frames = [{}]) {
   if (query.or) {
@@ -134,8 +118,6 @@ export const evaluate = function* (db, query, frames = [{}]) {
     yield* evaluateNot(db, query.not, frames)
   } else if (query.when) {
     yield* evaluateWhen(db, query.when, frames)
-  } else if (query.ok) {
-    yield* evaluateYes(db, query.ok, frames)
   } else if (query.apply) {
     yield* evaluateRule(db, query.apply, frames)
   } else {
@@ -148,8 +130,8 @@ export const evaluate = function* (db, query, frames = [{}]) {
  *
  *
  * @param {API.Querier} db
- * @param {API.Query[]} conjuncts
- * @param {Iterable<API.Frame>} frames
+ * @param {API.Clause[]} conjuncts
+ * @param {Iterable<API.Bindings>} frames
  */
 export const evaluateAnd = function* (db, conjuncts, frames) {
   for (const query of conjuncts) {
@@ -162,8 +144,8 @@ export const evaluateAnd = function* (db, conjuncts, frames) {
 /**
  *
  * @param {API.Querier} db
- * @param {API.Query} operand
- * @param {Iterable<API.Frame>} frames
+ * @param {API.Clause} operand
+ * @param {Iterable<API.Bindings>} frames
  */
 export const evaluateNot = function* (db, operand, frames) {
   for (const frame of frames) {
@@ -182,24 +164,16 @@ export const evaluateNot = function* (db, operand, frames) {
  * we should instead throw an exception as query is invalid.
  *
  * @param {API.Querier} db
- * @param {API.Predicate} predicate
- * @param {Iterable<API.Frame>} frames
+ * @param {API.When} predicate
+ * @param {Iterable<API.Bindings>} bindings
  */
-export const evaluateWhen = function* (db, predicate, frames) {
-  for (const frame of frames) {
+export const evaluateWhen = function* (db, predicate, bindings) {
+  for (const frame of bindings) {
     if (!predicate.match(frame).error) {
       yield frame
     }
   }
 }
-
-/**
- *
- * @param {API.Querier} db
- * @param {{}} ignore
- * @param {Iterable<API.Frame>} frames
- */
-export const evaluateYes = (db, ignore, frames) => frames
 
 /**
  * @param {Iterable<unknown>} iterable
@@ -215,8 +189,8 @@ const isEmpty = (iterable) => {
  * Takes disjunct queries and frames and returns extended frames.
  *
  * @param {API.Querier} db
- * @param {API.Query[]} disjuncts
- * @param {Iterable<API.Frame>} frames
+ * @param {API.Clause[]} disjuncts
+ * @param {Iterable<API.Bindings>} frames
  */
 export const evaluateOr = function* (db, disjuncts, frames) {
   // We copy iterable here because first disjunct will consume all the frames
@@ -230,16 +204,16 @@ export const evaluateOr = function* (db, disjuncts, frames) {
 /**
  *
  * @param {API.Querier} db
- * @param {API.Query['match'] & {}} pattern
- * @param {Iterable<API.Frame>} frames
+ * @param {API.Clause['match'] & {}} pattern
+ * @param {Iterable<API.Bindings>} frames
  */
 
 const evaluateMatch = function* (db, pattern, frames) {
   // We collect facts to avoid reaching for the db on each frame.
   const facts = [...iterateFacts(db, pattern)]
-  for (const frame of frames) {
+  for (const bindings of frames) {
     for (const fact of facts) {
-      yield* matchFact(fact, pattern, frame)
+      yield* matchFact(fact, pattern, bindings)
     }
   }
 }
@@ -247,12 +221,12 @@ const evaluateMatch = function* (db, pattern, frames) {
 /**
  *
  * @param {API.Querier} db
- * @param {API.Query['apply'] & {}} rule
- * @param {Iterable<API.Frame>} frames
+ * @param {API.Clause['apply'] & {}} rule
+ * @param {Iterable<API.Bindings>} frames
  */
 const evaluateRule = function* (db, rule, frames) {
-  for (const frame of frames) {
-    yield* matchRule(db, rule, frame)
+  for (const bindings of frames) {
+    yield* matchRule(db, rule, bindings)
   }
 }
 
@@ -262,9 +236,9 @@ const evaluateRule = function* (db, rule, frames) {
  */
 const iterateFacts = (db, [entity, attribute, value]) =>
   db.facts({
-    entity: isVariable(entity) ? undefined : entity,
-    attribute: isVariable(attribute) ? undefined : attribute,
-    value: isVariable(value) ? undefined : value,
+    entity: Variable.is(entity) ? undefined : entity,
+    attribute: Variable.is(attribute) ? undefined : attribute,
+    value: Variable.is(value) ? undefined : value,
   })
 
 /**
@@ -274,10 +248,10 @@ const iterateFacts = (db, [entity, attribute, value]) =>
  *
  * @param {API.Fact} fact
  * @param {API.Pattern} pattern
- * @param {API.Frame} frame
+ * @param {API.Bindings} bindings
  */
-const matchFact = function* (fact, pattern, frame) {
-  const result = matchPattern(pattern, fact, frame)
+const matchFact = function* (fact, pattern, bindings) {
+  const result = matchPattern(pattern, fact, bindings)
   if (result.ok) {
     yield result.ok
   }
@@ -287,11 +261,11 @@ const matchFact = function* (fact, pattern, frame) {
  *
  * @param {API.Pattern} pattern
  * @param {API.Fact} fact
- * @param {API.Frame} frame
- * @returns {API.Result<API.Frame, Error>}
+ * @param {API.Bindings} bindings
+ * @returns {API.Result<API.Bindings, Error>}
  */
-const matchPattern = (pattern, [entity, attribute, value], frame) => {
-  let result = matchTerm(pattern[ENTITY], entity, frame)
+const matchPattern = (pattern, [entity, attribute, value], bindings) => {
+  let result = matchTerm(pattern[ENTITY], entity, bindings)
   result = result.error
     ? result
     : matchTerm(pattern[ATTRIBUTE], attribute, result.ok)
@@ -308,29 +282,29 @@ const matchPattern = (pattern, [entity, attribute, value], frame) => {
  *
  * @param {API.Term} term
  * @param {API.Constant} value
- * @param {API.Frame} frame
- * @returns {API.Result<API.Frame, Error>}
+ * @param {API.Bindings} bindings
+ * @returns {API.Result<API.Bindings, Error>}
  */
-const matchTerm = (term, value, frame) =>
+const matchTerm = (term, value, bindings) =>
   // We have a special `_` variable that matches anything. Unlike all other
   // variables it is not unified across all the relations which is why we treat
   // it differently and do add no bindings for it.
   isBlank(term)
-    ? { ok: frame }
+    ? { ok: bindings }
     : // All other variables get unified which is why we attempt to match them
       // against the data in the current state.
-      isVariable(term)
-      ? matchVariable(term, value, frame)
+      Variable.is(term)
+      ? matchVariable(term, value, bindings)
       : // If term is a constant we simply ensure that it matches the data.
-        matchConstant(term, value, frame)
+        matchConstant(term, value, bindings)
 
 /**
- * @template {API.Frame} State
+ * @template {API.Bindings} Bindings
  *
  * @param {API.Constant} constant
  * @param {API.Constant} value
- * @param {State} frame
- * @returns {API.Result<State, Error>}
+ * @param {Bindings} frame
+ * @returns {API.Result<Bindings, Error>}
  */
 export const matchConstant = (constant, value, frame) =>
   constant === value || equal(constant, value)
@@ -341,12 +315,12 @@ export const matchConstant = (constant, value, frame) =>
  *
  * @param {API.Variable} variable
  * @param {API.Constant} data
- * @param {API.Frame} frame
- * @returns {API.Result<API.Frame, Error>}
+ * @param {API.Bindings} frame
+ * @returns {API.Result<API.Bindings, Error>}
  */
 export const matchVariable = (variable, data, frame) => {
   // Get key this variable is bound to in the context
-  const key = getPropertyKey(variable)
+  const key = Variable.id(variable)
   // If context already contains binding for we attempt to unify it with the
   // new data otherwise we bind the data to the variable.
   if (key in frame) {
@@ -361,13 +335,13 @@ export const matchVariable = (variable, data, frame) => {
  *
  * @param {API.Querier} db
  * @param {API.ApplyRule} rule
- * @param {API.Frame} frame
+ * @param {API.Bindings} bindings
  */
-const matchRule = function* (db, rule, frame) {
+const matchRule = function* (db, rule, bindings) {
   const { match, where } = Rule.setup(rule.rule)
 
   // Unify passed rule bindings with the rule match pattern.
-  const result = unifyRule(rule.input, match, frame)
+  const result = unifyRule(rule.input, match, bindings)
   if (!result.error) {
     yield* evaluate(db, where, [result.ok])
   }
@@ -376,35 +350,35 @@ const matchRule = function* (db, rule, frame) {
 /**
  *
  * @param {API.Frame} input
- * @param {API.Bindings} match
- * @param {API.Frame} frame
- * @returns {API.Result<API.Frame, Error>}
+ * @param {API.Variables} match
+ * @param {API.Bindings} bindings
+ * @returns {API.Result<API.Bindings, Error>}
  */
-const unifyRule = (input, match, frame) => {
+const unifyRule = (input, match, bindings) => {
   for (const [key, variable] of Object.entries(match)) {
-    const result = unifyMatch(input[key], variable, frame)
+    const result = unifyMatch(input[key], variable, bindings)
     if (result.error) {
       return result
     }
-    frame = result.ok
+    bindings = result.ok
   }
 
-  return { ok: frame }
+  return { ok: bindings }
 }
 
 /**
  * @param {API.Term} binding
  * @param {API.Variable} variable
- * @param {API.Frame} frame
- * @returns {API.Result<API.Frame, Error>}
+ * @param {API.Bindings} bindings
+ * @returns {API.Result<API.Bindings, Error>}
  */
-const unifyMatch = (binding, variable, frame) => {
+const unifyMatch = (binding, variable, bindings) => {
   if (binding === variable) {
-    return { ok: frame }
-  } else if (isVariable(binding)) {
-    return extendIfPossible(binding, variable, frame)
-  } else if (isVariable(variable)) {
-    return extendIfPossible(variable, binding, frame)
+    return { ok: bindings }
+  } else if (Variable.is(binding)) {
+    return extendIfPossible(binding, variable, bindings)
+  } else if (Variable.is(variable)) {
+    return extendIfPossible(variable, binding, bindings)
   } else {
     return { error: new RangeError(`Expected ${binding} got ${variable}`) }
   }
@@ -414,19 +388,24 @@ const unifyMatch = (binding, variable, frame) => {
  * @template {API.Constant} T
  * @param {API.Variable<T>} variable
  * @param {API.Term<T>} value
- * @param {API.Frame} frame
- * @returns {API.Result<API.Frame, Error>}
+ * @param {API.Bindings} bindings
+ * @returns {API.Result<API.Bindings, Error>}
  */
-const extendIfPossible = (variable, value, frame) => {
-  const binding = resolveBinding(variable, frame)
-  if (!binding.error) {
-    return matchTerm(value, binding.ok, frame)
-  } else if (isVariable(value)) {
-    const binding = resolveBinding(value, frame)
-    if (!binding.error) {
-      return matchTerm(variable, binding.ok, frame)
+const extendIfPossible = (variable, value, bindings) => {
+  const binding = Bindings.get(bindings, variable)
+  if (binding != null) {
+    return matchTerm(value, binding, bindings)
+  } else if (Variable.is(value)) {
+    const binding = Bindings.get(bindings, value)
+    if (binding != null) {
+      return matchTerm(variable, binding, bindings)
     } else {
-      return { ok: { ...frame, [getPropertyKey(variable)]: value } }
+      return {
+        ok: /** @type {API.Bindings} */ ({
+          ...bindings,
+          [Variable.id(variable)]: value,
+        }),
+      }
     }
 
     // Not sure how can we resolve variable to query here which is why
@@ -434,66 +413,6 @@ const extendIfPossible = (variable, value, frame) => {
     // } else if (isDependent(value, variable, frame)) {
     //   return { error: new Error(`Can not self reference`) }
   } else {
-    return { ok: { ...frame, [getPropertyKey(variable)]: value } }
-  }
-}
-
-/**
- *
- * @param {API.Query} query
- * @param {API.Variable} variable
- * @param {API.Frame} frame
- */
-const isDependent = (query, variable, frame) => {
-  for (const each of iterateVariables(query)) {
-    if (each === variable) {
-      return true
-    } else {
-      const binding = resolveBinding(each, frame)
-      if (!binding.error) {
-        // @ts-ignore - not sure how can we resolve variable to a query
-        if (isDependent(binding.ok, variable, frame)) {
-          return true
-        }
-      }
-    }
-  }
-  return false
-}
-
-/**
- * @param {API.Query} query
- * @returns {Iterable<API.Variable>}
- */
-export const iterateVariables = function* (query) {
-  if (query.and) {
-    for (const conjunct of query.and) {
-      yield* iterateVariables(conjunct)
-    }
-  } else if (query.or) {
-    for (const disjunct of query.or) {
-      yield* iterateVariables(disjunct)
-    }
-  } else if (query.not) {
-    yield* iterateVariables(query.not)
-  } else if (query.when) {
-  } else if (query.ok) {
-  } else if (query.apply) {
-    for (const binding of Object.values(query.apply.input)) {
-      if (isVariable(binding)) {
-        yield binding
-      }
-    }
-  } else {
-    const [entity, attribute, value] = query.match
-    if (isVariable(entity)) {
-      yield entity
-    }
-    if (isVariable(attribute)) {
-      yield attribute
-    }
-    if (isVariable(value)) {
-      yield value
-    }
+    return { ok: { ...bindings, [Variable.id(variable)]: value } }
   }
 }

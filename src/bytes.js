@@ -1,3 +1,5 @@
+import { base64 } from 'multiformats/bases/base64'
+
 /**
  * @param {Uint8Array} self
  * @param {Uint8Array} other
@@ -24,3 +26,21 @@ export const equal = (self, other) => {
     return false
   }
 }
+
+/**
+ * @typedef {{'/': {bytes: string}}} JSON
+ * @param {Uint8Array} bytes
+ * @returns {JSON}
+ */
+export const toJSON = (bytes) => ({ '/': { bytes: base64.baseEncode(bytes) } })
+
+/**
+ * @param {JSON} json
+ * @returns {Uint8Array}
+ */
+export const fromJSON = (json) => base64.baseDecode(json['/'].bytes)
+
+/**
+ * @param {Uint8Array} bytes
+ */
+export const toString = (bytes) => `{"/":{bytes:"${base64.baseEncode(bytes)}"}}`

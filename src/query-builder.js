@@ -47,7 +47,7 @@ class QueryBuilder {
     this.select = select
   }
   /**
-   * @param {(variables: Select) => Iterable<API.Pattern>} conditions
+   * @param {(variables: Select) => Iterable<API.Clause>} conditions
    * @returns {Query<Select>}
    */
   where(conditions) {
@@ -65,7 +65,7 @@ class Query {
   /**
    * @param {object} model
    * @param {Selection} model.select
-   * @param {API.Pattern[]} model.where
+   * @param {API.Clause[]} model.where
    */
   constructor(model) {
     this.model = model
@@ -74,7 +74,7 @@ class Query {
   /**
    *
    * @param {API.Querier} db
-   * @returns {API.InferFrame<Selection>[]}
+   * @returns {API.InferBindings<Selection>[]}
    */
   execute(db) {
     return query(db, this.model)

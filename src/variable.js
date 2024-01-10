@@ -1,7 +1,8 @@
 import * as API from './api.js'
-export const PROPERTY_KEY = Symbol.for('propertyKey')
+import * as Row from './logic/row.js'
+export const VARIABLE_ID = Symbol.for('propertyKey')
 
-let LAST_KEY = 0
+let LAST_ID = 0
 
 /**
  * @template {API.Constant} T
@@ -38,13 +39,13 @@ class Variable {
    */
   constructor(type) {
     this.type = type
-    this.id = `$${++LAST_KEY}`
+    this.id = ++LAST_ID
   }
 
   [Symbol.toPrimitive]() {
-    return this.id
+    return getPropertyKey(this)
   }
-  get [PROPERTY_KEY]() {
+  get [VARIABLE_ID]() {
     return this.id
   }
   /**
@@ -53,28 +54,58 @@ class Variable {
   tryFrom(value) {
     return this.type.tryFrom(value)
   }
+
+  toString() {
+    return toString(this)
+  }
 }
 
 /**
- * @param {API.Variable & {[PROPERTY_KEY]?: PropertyKey}} variable
+ * @param {API.Variable} variable
  * @returns {PropertyKey}
  */
-export const getPropertyKey = (variable) => {
-  const propertyKey = variable[PROPERTY_KEY]
-  if (propertyKey) {
-    return propertyKey
+export const getPropertyKey = (variable) => `$${getVariableID(variable)}`
+
+/**
+ * @param {API.Variable} variable
+ * @returns {API.VariableID}
+ */
+const getVariableID = (variable) => {
+  const id = variable[VARIABLE_ID]
+  if (id != null) {
+    return id
   } else {
-    const bindingKey = `$${++LAST_KEY}`
-    variable[PROPERTY_KEY] = bindingKey
-    return bindingKey
+    const id = ++LAST_ID
+    variable[VARIABLE_ID] = id
+    return id
   }
 }
 
 export const id = getPropertyKey
 
 /**
- *
  * @param {API.Variable} variable
  * @returns {API.RowType}
  */
 export const type = (variable) => variable.type
+
+/**
+ * @param {API.Variable} variable
+ * @returns {string}
+ */
+export const toString = (variable) => {
+  const type = Row.Type.toString(variable.type)
+  const id = String(getPropertyKey(variable))
+
+  return `{variable:{type:${type}, id:"${id}"}}`
+}
+
+/**
+ * @param {API.Variable} variable
+ */
+export const inspect = (variable) => ({
+  Variable: {
+    type: Row.Type.inspect(variable.type),
+    id: getVariableID(variable),
+  },
+})

@@ -1,5 +1,6 @@
 import * as DB from 'datalogia'
 import * as microshaft from './microshaft-facts.js'
+import { startsWith } from '../src/constraint.js'
 
 const testDB = DB.Memory.create(microshaft)
 
@@ -9,8 +10,8 @@ const testDB = DB.Memory.create(microshaft)
 export const testMore = {
   'test facts': (assert) => {
     const Employee = DB.entity({
-      name: DB.Schema.string(),
-      job: DB.Schema.string(),
+      name: DB.string(),
+      job: DB.string(),
     })
 
     const employee = new Employee()
@@ -31,7 +32,10 @@ export const testMore = {
           name: employee.name,
           job: employee.job,
         },
-        where: [employee.job.startsWith('Computer')],
+        where: [
+          // startsWith(employee.job, 'Computer'),
+          employee.job.startsWith('Computer'),
+        ],
       }),
       [
         { name: 'Bitdiddle Ben', job: 'Computer wizard' },
@@ -44,13 +48,13 @@ export const testMore = {
   },
   'test supervisor': (assert) => {
     const Supervisor = DB.entity({
-      name: DB.Schema.string(),
-      salary: DB.Schema.integer(),
+      name: DB.string(),
+      salary: DB.integer(),
     })
 
     const Employee = DB.entity({
-      name: DB.Schema.string(),
-      salary: DB.Schema.integer(),
+      name: DB.string(),
+      salary: DB.integer(),
       supervisor: new Supervisor(),
     })
 
@@ -78,8 +82,8 @@ export const testMore = {
   },
   'test salary': (assert) => {
     const Employee = DB.entity({
-      name: DB.Schema.string(),
-      salary: DB.Schema.integer(),
+      name: DB.string(),
+      salary: DB.integer(),
     })
 
     const employee = new Employee()
@@ -122,8 +126,8 @@ export const testMore = {
   },
   'test address': (assert) => {
     const Employee = DB.entity({
-      name: DB.Schema.string(),
-      address: DB.Schema.string(),
+      name: DB.string(),
+      address: DB.string(),
     })
 
     const employee = new Employee()
@@ -143,9 +147,9 @@ export const testMore = {
   },
   'test employee with non comp supervisor ': (assert) => {
     const Employee = DB.entity({
-      name: DB.Schema.string(),
-      supervisor: DB.Schema.string(),
-      job: DB.Schema.string(),
+      name: DB.string(),
+      supervisor: DB.string(),
+      job: DB.string(),
     })
 
     const employee = new Employee()

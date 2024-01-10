@@ -1,5 +1,8 @@
-import { PROPERTY_KEY } from './variable.js'
-import { ByteView, Link as IPLDLink, Version } from 'multiformats'
+import { variables } from './clause.js'
+import { VARIABLE_ID } from './variable.js'
+import { ByteView, Link as IPLDLink } from 'multiformats'
+
+export type { ByteView }
 
 export interface Link<
   Data extends {} | null = {} | null,
@@ -135,14 +138,25 @@ export type Constant = boolean | Int32 | Float32 | Int64 | string | Bytes | Link
  */
 export interface Variable<T extends Constant = Constant>
   extends TryFrom<{ Self: T; Input: Constant }> {
-  [PROPERTY_KEY]?: PropertyKey
+  type: RowType
+  [VARIABLE_ID]?: VariableID
 }
+
+export type VariableID = number
 
 /**
  * Term is either a constant or a {@link Variable}. Terms are used to describe
  * predicates of the query.
  */
 export type Term<T extends Constant = Constant> = T | Variable<T>
+
+export type ExtendedTerm = Constant | VariableVariant
+
+export type VariableVariant = Variant<{
+  Row: { id: RelationID; alias?: AliasID; row: RowID }
+  Link: { id: RelationID; alias?: AliasID }
+  Aggregate: { id: RelationID; alias?: AliasID; variable: Variable }
+}>
 
 /**
  * Describes association between `entity`, `attribute`, `value` of the
@@ -159,32 +173,20 @@ export type Pattern = [
   value: Term<Constant>,
 ]
 
-export type Query = Variant<{
+export type Clause = Variant<{
   // and clause
-  and: Query[]
+  and: Clause[]
   // or clause
-  or: Query[]
+  or: Clause[]
   // negation
-  not: Query
+  not: Clause
   // expression clause
   // pattern match
   match: Pattern
   // predicate
-  when: Predicate
+  when: When
   // rule application
   apply: ApplyRule
-  // ignore
-  ok: []
-}>
-
-export type Condition = Variant<{
-  is: Pattern
-  not: Pattern
-}>
-
-export type Clause = Variant<{
-  and: Condition[]
-  or: Condition[]
 }>
 
 export type Frame = Record<PropertyKey, Term>
@@ -214,11 +216,11 @@ export interface FactsSelector {
   value?: Constant
 }
 
-type Operation = Variant<{
+export type Instruction = Variant<{
   assert: Fact
 }>
 
-export interface Transaction extends Iterable<Operation> {}
+export interface Transaction extends Iterable<Instruction> {}
 
 export interface Transactor {
   transact(transaction: Transaction): Promise<Result<{}, Error>>
@@ -237,6 +239,101 @@ export type Constraint = Variant<{
   '>=': [Term, Term]
 }>
 
+export type Operation = Variant<{
+  // a.k.a Projection in PomoRA
+  Select: Select
+  Search: Search
+  // a.k.a Aggregation
+  Accumulate: Accumulate
+}>
+
+/**
+ * Describes Projection unary operation in the PomoRA which is parameterized
+ * over a set of attribute names, and restricts propositions in its input
+ * relation to the attributes given by these names.
+ *
+ * @see https://github.com/RhizomeDB/PomoRA?tab=readme-ov-file#211-projection
+ */
+export interface Select<Rows extends Selector = Selector> {
+  relationKey: RelationKey
+  rows: Rows
+  relation: Relation
+  formulae: Formula[]
+}
+
+/**
+ * A selection is a unary operation which is parameterized over a propositional
+ * formula, and that returns instances in its input relation for which this
+ * formula holds.
+ *
+ * @see https://github.com/RhizomeDB/PomoRA?tab=readme-ov-file#213-selection
+ */
+
+export interface Search {
+  relationKey: RelationKey
+  alias?: AliasID
+  relation: Relation
+
+  variables: Variables
+  when: Formula[]
+  operation: Operation
+}
+
+/**
+ * a.k.a Aggregation
+ */
+export interface Accumulate<
+  T extends Constant = Constant,
+  Variables extends Selector = Selector,
+> {
+  variables: Variables
+  aggregator: Aggregate<{
+    Self: {} | null
+    In: InferBindings<Variables>
+    Out: T
+  }>
+
+  groupByRows: Selector
+  target: Variable<T>
+
+  id: RelationID
+  alias?: AliasID
+  relation: Relation
+  when: Formula[]
+  operation: Operation
+}
+
+export type Formula = Variant<{
+  Equality: Equality
+  NotIn: NotIn
+  Predicate: Predicate
+}>
+
+export interface Equality {
+  operand: Term
+  modifier: Term
+}
+
+export interface NotIn<Rows extends Selector = Selector> {
+  relationKey: RelationKey
+  rows: Rows
+  relation: Relation
+}
+
+export interface Predicate<Variables extends Selector = Selector> {
+  variables: Variables
+  schema: TryFrom<{ Self: {}; Input: InferBindings<Variables> }>
+}
+
+export type RelationKey = [RelationID, Version]
+export type AliasID = string
+
+export type Version = Variant<{
+  Total: {}
+  Delta: {}
+  New: {}
+}>
+
 export type Rule = DeductiveRule | InductiveRule
 
 export interface ApplyRule {
@@ -245,22 +342,69 @@ export interface ApplyRule {
 }
 
 export interface DeductiveRule {
-  match: Bindings
+  match: Variables
   // where: RulePredicate[]
-  where: Query
+  where: Clause
 }
 
 export interface InductiveRule {
-  match: Bindings
+  match: Variables
   // where: RulePredicate[]
-  where: Query
+  where: Clause
 }
 
-export interface Bindings extends Record<PropertyKey, Variable> {}
+export type RuleBodyTerm = Variant<{
+  VariablePredicate: VariablePredicate
+  RelationPredicate: RelationPredicate
+  Negation: Negation
+  Aggregation: Aggregation
+}>
 
-export type InferBindings<T extends Bindings> = {
-  [K in keyof T]: T[K] extends Variable<infer U> ? U : never
+export interface RuleModel<Variables extends Selector = Selector> {
+  head: RelationID
+  variables: Variables
+  body: RuleBodyTerm[]
 }
+
+export interface VariablePredicate<Variables extends Selector = Selector> {
+  variables: Variables
+  predicate: TryFrom<{ Self: {}; Input: InferBindings<Variables> }>
+}
+
+export interface RelationPredicate<Variables extends Selector = Selector> {
+  variables: Variables
+  relation: Declaration
+  link?: Term<Link>
+}
+
+export interface Negation<Variables extends Selector = Selector> {
+  variables: Variables
+  relation: Declaration
+}
+
+export interface Aggregation<
+  T extends Constant = Constant,
+  Variables extends Selector = Selector,
+> {
+  target: Variable<T>
+  variables: Variables
+  relation: Declaration
+  groupByRows: Selector
+  aggregator: Aggregate<{
+    Self: {} | null
+    In: InferBindings<Variables>
+    Out: T
+  }>
+}
+
+export interface Variables extends Record<PropertyKey, Variable> {}
+export interface Bindings extends Record<PropertyKey, Constant> {}
+
+export type BindingKey = Variant<{
+  Relation: { id: RelationID; alias?: AliasID; row: RowID }
+  Link: { id: RelationID; alias?: AliasID }
+  Aggregate: { id: RelationID; alias?: AliasID; variable: Variable }
+}>
 
 /**
  * Selection describes set of (named) variables that query engine will attempt
@@ -268,20 +412,7 @@ export type InferBindings<T extends Bindings> = {
  */
 export interface Selector extends Record<PropertyKey, Term> {}
 
-export type Selection = Selector | Variable<Link<Record<PropertyKey, Constant>>>
-
-export interface Match {
-  match: Bindings
-  rule: Rule
-}
-
-export type RulePredicate = Variant<{
-  select: Selection
-
-  match: Match
-  or: RulePredicate[]
-  not: RulePredicate
-}>
+export type Selection = Selector | Variable<Link<Bindings>>
 
 export interface Not {
   not: Selector
@@ -291,8 +422,8 @@ export interface Not {
 
 export type Combinator = Variant<{}>
 
-export interface Predicate<Input = Frame> {
-  match(input: Input): Result<{}, Error>
+export interface When<Input extends Variables = Variables> {
+  match(input: InferBindings<Input>): Result<{}, Error>
 }
 
 /**
@@ -301,6 +432,10 @@ export interface Predicate<Input = Frame> {
  */
 export interface Aggregate<
   Type extends {
+    Self: {} | null
+    In: unknown
+    Out: unknown
+  } = {
     Self: {} | null
     In: unknown
     Out: unknown
@@ -321,11 +456,13 @@ export type RelationID = string
 // ColId
 export type RowID = string
 
-export interface Declaration {
+export interface Declaration<Schema extends Rows = Rows> {
   id: RelationID
-  schema: Table
+  schema: Table<Schema>
 
   source: Source
+
+  relation: Relation
 }
 
 export type Source = Variant<{
@@ -336,29 +473,27 @@ export type Source = Variant<{
 export interface Relation {
   length: number
   isEmpty(): boolean
-  contains(bindings: Record<PropertyKey, Constant>): boolean
-  search(bindings: Record<PropertyKey, Constant>): Iterable<Instance>
+  contains(bindings: Bindings): boolean
+  search(bindings: Bindings): Iterable<Association>
 
   purge(): void
-  insert(bindings: Record<PropertyKey, Constant>, instance: Instance): void
+  insert(bindings: Bindings, instance: Association): void
   merge(relation: Relation): void
 }
 
-export interface Instance {
+export interface Table<Schema extends Rows = Rows> {
   id: RelationID
-  rows: Record<RowID, Row>
-  link: Link
+  rows: Schema
 }
 
-export interface Table<Rows extends Record<RowID, Row> = Record<RowID, Row>> {
-  id: RelationID
-  rows: Rows
-}
+export interface Rows extends Record<RowID, Row> {}
 
-export interface Row {
+export interface Row<Type extends RowType = RowType> {
   id: RowID
-  type: RowType
+  type: Type
 }
+
+export type RowTerm<T extends Constant = Constant> = T | Variable<T>
 
 export type Type = Variant<{
   Boolean: TryFrom<{ Self: boolean; Input: Constant }>
@@ -399,6 +534,85 @@ export type InferType<T extends RowType> = T['Any'] extends TryFrom<any>
                 ? Link
                 : never
 
-export type InferFrame<Selection extends Selector> = {
+export type InferBindings<Selection extends Selector> = {
   [Key in keyof Selection]: Selection[Key] extends Term<infer T> ? T : never
+}
+
+export type InferTerm<T extends Term> = T extends Term<infer U> ? U : never
+
+export interface BlockStore {}
+
+/**
+ * Rhizome calls these a [`Fact`] in the AST context and a [`Tuple`] in the
+ * execution context and both are confusing given that [PomoDB Fact]s are EAVT
+ * quads (4-tuples), and tuples are very overloaded. PomoLogic call these a
+ * [ground atom][]s.
+ *
+ * We call these an `Association` because they represent set of attributes for
+ * the same entity.
+ *
+ * [`Fact`]:https://github.com/RhizomeDB/rs-rhizome/blob/1a3a027dea60a3083596f00f2a4d6d5982eed040/rhizomedb/src/logic/ast/fact.rs
+ * [PomoDB Fact]:https://github.com/RhizomeDB/spec?tab=readme-ov-file#412-fact
+ * [ground atom]:https://github.com/RhizomeDB/PomoLogic/tree/e0a2b383cd5f08d7b950cf79147f95fe2bd47c90#atoms
+ */
+export interface Association<Attributes extends Bindings = Bindings> {
+  head: RelationID
+  attributes: Attributes
+  link?: Link
+}
+
+export type Expression = Variant<{
+  Association: Association
+  Rule: RuleModel
+}>
+
+export interface Program {
+  declarations: Declaration[]
+  expressions: Expression[]
+}
+
+export interface Stratum {
+  relations: Set<RelationID>
+  recursive: boolean
+  expressions: Expression[]
+}
+
+// RAM
+
+export type Statement = Variant<{
+  Insert: Insert
+  Merge: Merge
+  Purge: Purge
+  Loop: Loop
+}>
+
+export interface Insert {
+  operation: Operation
+  // Whether the insertion is for a ground atom with all constant columns.
+  isGround: boolean
+}
+
+export interface Merge {
+  fromKey: RelationKey
+  intoKey: RelationKey
+
+  from: Relation
+  into: Relation
+}
+
+export interface Swap {
+  fromKey: RelationKey
+  intoKey: RelationKey
+
+  from: Relation
+  into: Relation
+}
+
+export interface Purge {
+  relationKey: RelationKey
+  relation: Relation
+}
+
+export interface Loop {
+  body: Statement[]
 }

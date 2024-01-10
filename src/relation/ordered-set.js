@@ -1,11 +1,11 @@
 import * as API from '../api.js'
-import * as Instance from '../instance.js'
+import * as Instance from '../association.js'
 
 export const create = () => new OrderedSetRelation(new Map())
 
 /**
  *
- * @param {Iterable<API.Instance>} instances
+ * @param {Iterable<API.Association>} instances
  */
 export const from = (instances) => {
   const relation = create()
@@ -22,7 +22,7 @@ export const from = (instances) => {
 class OrderedSetRelation {
   /**
    *
-   * @param {Map<string, API.Instance>} model
+   * @param {Map<string, API.Association>} model
    */
   constructor(model) {
     this.model = model
@@ -40,7 +40,7 @@ class OrderedSetRelation {
   contains(bindings) {
     for (const instance of this.model.values()) {
       for (const [key, value] of Object.entries(bindings)) {
-        if (!Instance.row(instance, key)) {
+        if (!Instance.get(instance, key)) {
           return false
         }
       }
@@ -54,7 +54,7 @@ class OrderedSetRelation {
   *search(bindings) {
     const keys = Object.keys(bindings)
     for (const instance of this.model.values()) {
-      if (keys.every((key) => Instance.row(instance, key))) {
+      if (keys.every((key) => Instance.get(instance, key))) {
         yield instance
       }
     }
@@ -67,10 +67,10 @@ class OrderedSetRelation {
   /**
    *
    * @param {Record<PropertyKey, API.Constant>} _
-   * @param {API.Instance} instance
+   * @param {API.Association} instance
    */
   insert(_, instance) {
-    this.model.set(instance.link.toString(), instance)
+    this.model.set(Instance.link(instance).toString(), instance)
   }
 
   /**
@@ -79,7 +79,7 @@ class OrderedSetRelation {
   merge(relation) {
     if (relation instanceof OrderedSetRelation) {
       for (const instance of relation.model.values()) {
-        this.model.set(instance.link.toString(), instance)
+        this.model.set(Instance.link(instance).toString(), instance)
       }
     } else {
       throw new Error(`Attempted to merge incompatible relations`)

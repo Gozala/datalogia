@@ -1,15 +1,16 @@
 import * as API from './api.js'
-import { iterateVariables } from './lib.js'
-import * as Table from './table.js'
-import * as Row from './row.js'
+import * as Table from './logic/table.js'
+import * as Row from './logic/row.js'
 import * as Variable from './variable.js'
+import * as Clause from './clause.js'
+import * as Schema from './dsl.js'
 
 /**
- * @template {API.Bindings} Match
+ * @template {API.Variables} Match
  *
  * @param {object} source
  * @param {Match} source.match
- * @param {API.Query[]} [source.where]
+ * @param {API.Clause[]} [source.where]
  */
 export const rule = ({ match, where = [] }) =>
   new Rule({
@@ -18,29 +19,29 @@ export const rule = ({ match, where = [] }) =>
   })
 
 /**
- * @template {API.Bindings} Match
+ * @template {API.Variables} Match
  *
  * @param {object} source
  * @param {Match} source.match
- * @param {API.Query[]} [source.where]
+ * @param {API.Clause[]} [source.where]
  */
 const build = ({ match, where = [] }) => {
   const builder = new RuleBodyBuilder()
 
-  for (const variable of iterateVariables({ and: where })) {
+  for (const variable of Clause.variables({ and: where })) {
   }
 
   builder.search('self', match)
 }
 
 /**
- * @template {API.Bindings} Match
+ * @template {API.Variables} Match
  */
 class Rule {
   /**
    * @param {object} source
    * @param {Match} source.match
-   * @param {API.Query} source.where
+   * @param {API.Clause} source.where
    */
   constructor(source) {
     this.source = source
@@ -68,7 +69,7 @@ class RuleBodyBuilder {
   /**
    * @template {PropertyKey} ID
    * @param {ID} id
-   * @param {API.Bindings} bindings
+   * @param {API.Variables} bindings
    */
   search(id, bindings) {
     const builder = RelationsBuilder.new()
@@ -82,7 +83,7 @@ class RuleBodyBuilder {
    * @template {PropertyKey} ID
    * @param {ID} id
    * @param {API.Link} link
-   * @param {API.Bindings} bindings
+   * @param {API.Variables} bindings
    */
   searchLink(id, link, bindings) {
     const builder = RelationsBuilder.new()
@@ -132,17 +133,17 @@ class RelationsBuilder {
 
   build(relation, frame) {
     if (this.link) {
-      if (isVariable(this.link)) {
+      if (Variable.is(this.link)) {
         Object.assign(this.bindings, {
-          [getPropertyKey(this.link)]: Schema.link(),
+          [Variable.id(this.link)]: Schema.link(),
         })
       }
     }
 
     for (const [key, value] of Object.entries(this.bindings)) {
-      if (isVariable(value)) {
+      if (Variable.is(value)) {
         Object.assign(this.bindings, {
-          [getPropertyKey(value)]: Schema.link(),
+          [Variable.id(value)]: Schema.link(),
         })
       }
     }
@@ -165,7 +166,7 @@ export const setup = (rule) => {
 export const conclusion = (rule) => rule.match
 
 /**
- * @template {API.Bindings} Bindings
+ * @template {API.Variables} Bindings
  */
 class HeadBuilder {
   /**
@@ -185,12 +186,12 @@ class HeadBuilder {
     this.bindings = bindings
   }
   /**
-   * @template {API.Bindings} Ext
+   * @template {API.Variables} Ext
    * @param {Ext} bindings
    * @returns {HeadBuilder<Bindings & Ext>}
    */
   bind(bindings) {
-    return Object.assign(/** @type {HeadBuilder<API.Bindings>} */ (this), {
+    return Object.assign(/** @type {HeadBuilder<API.Variables>} */ (this), {
       bindings: Object.assign(this.bindings, bindings),
     })
   }
@@ -221,7 +222,7 @@ class HeadBuilder {
             : result
         } else {
           throw new RangeError(
-            `Clause not range restricted ${rowID} ${getPropertyKey(
+            `Clause not range restricted ${rowID} ${Variable.id(
               term
             ).toString()}`
           )

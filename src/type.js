@@ -88,6 +88,13 @@ const typeOf = (value) => {
 
 /**
  * @param {API.Type} type
+ * @returns {{} & {[K in keyof API.Type]: {[ID in K]: {}}}[keyof API.Type]}
+ */
+export const inspect = (type) =>
+  /** @type {any} */ ({ [discriminant(type)]: {} })
+
+/**
+ * @param {API.Type} type
  */
 export const toString = (type) => discriminant(type)
 

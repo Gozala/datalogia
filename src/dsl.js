@@ -1,17 +1,17 @@
 import * as API from './api.js'
-import { PROPERTY_KEY, getPropertyKey } from './variable.js'
+import { VARIABLE_ID, getPropertyKey } from './variable.js'
 import * as Link from './link.js'
 import { entries } from './object.js'
 
 /**
  * @param {unknown} x
- * @returns {x is Schema._}
+ * @returns {x is _}
  */
-export const isBlank = (x) => x === Schema._
+export const isBlank = (x) => x === _
 
 /**
  * @template {API.Constant} T
- * @typedef {T extends number ? NumberAttribute<T> :
+ * @typedef {T extends number ? Int32Attribute<T> :
  *           T extends string ? StringAttribute<T> :
  *           DataAttribute<T>} InferAttributeField
  */
@@ -22,7 +22,7 @@ export const isBlank = (x) => x === Schema._
  */
 
 /**
- * @template {API.Bindings} Attributes
+ * @template {API.Variables} Attributes
  * @param {Attributes} attributes
  * @returns {{new(): EntityView<Attributes> & InferEntityFields<Attributes>}}
  */
@@ -52,18 +52,25 @@ export const entity = (attributes) =>
 export class Schema {
   /**
    * @param {object} model
-   * @param {PropertyKey} [model.key]
+   * @param {API.VariableID} [model.id]
    */
-  constructor({ key } = {}) {
-    this[PROPERTY_KEY] = key
+  constructor({ id } = {}) {
+    this[VARIABLE_ID] = id
   }
 
+  /**
+   * @returns {API.RowType}
+   */
   get type() {
     return { Any: this }
   }
 
   get $() {
     return getPropertyKey(this)
+  }
+
+  get id() {
+    return this[VARIABLE_ID]
   }
 
   [Symbol.toPrimitive]() {
@@ -103,30 +110,6 @@ export class Schema {
   map(to) {
     return new SchemaPipeline({ from: this, to })
   }
-
-  static link() {
-    return new LinkSchema()
-  }
-
-  static string() {
-    return new StringSchema()
-  }
-  static integer() {
-    return new NumberSchema()
-  }
-
-  static float() {
-    return new NumberSchema()
-  }
-
-  static boolean() {
-    return new BooleanSchema()
-  }
-
-  /**
-   * @type {API.Variable<any>} T
-   */
-  static _ = new Schema({ key: '_' })
 }
 
 /**
@@ -137,7 +120,7 @@ export class Schema {
 class SchemaPipeline extends Schema {
   /**
    * @param {object} model
-   * @param {PropertyKey} [model.key]
+   * @param {API.VariableID} [model.id]
    * @param {API.TryFrom<{ Input: API.Constant, Self: State }>} model.from
    * @param {API.TryFrom<{ Input: State, Self: Self }>} model.to
    */
@@ -156,58 +139,102 @@ class SchemaPipeline extends Schema {
 }
 
 /**
- * @template {{}|null} T
- * @extends {Schema<API.Link<T>>}
- * @implements {API.TryFrom<{ Self: API.Link<T>, Input: API.Constant }>}
+ * @template {API.Constant} T
  */
-class LinkSchema extends Schema {
+class DataAttribute {
+  /**
+   * @param {object} model
+   * @param {API.Variable<T>} model.schema
+   * @param {API.Term<API.Attribute>} model.attribute
+   * @param {API.Term<API.Entity>} model.entity
+   */
+  constructor(model) {
+    this.model = model
+  }
+
+  get type() {
+    return this.model.schema.type
+  }
+
+  [Symbol.toPrimitive]() {
+    return getPropertyKey(this)
+  }
+
   /**
    * @param {API.Constant} value
-   * @returns {API.Result<API.Link<T>, RangeError>}
+   * @returns {API.Result<T, Error>}
    */
   tryFrom(value) {
-    if (Link.is(value)) {
-      return { ok: /** @type {any} */ (value) }
-    } else {
-      return { error: new RangeError(`Expected number, got ${typeof value}`) }
+    return this.model.schema.tryFrom(value)
+  }
+
+  /**
+   * @param {API.Term<API.Constant>} value
+   * @returns {API.Clause}
+   */
+  is(value) {
+    return { match: [this.model.entity, this.model.attribute, value] }
+  }
+
+  /**
+   * @returns {API.Clause}
+   */
+  match() {
+    return { match: [this.model.entity, this.model.attribute, this] }
+  }
+
+  /**
+   * @template {T} Not
+   * @param {Not} value
+   * @returns {API.Clause}
+   */
+  not(value) {
+    return {
+      match: [
+        this.model.entity,
+        this.model.attribute,
+        new SchemaPipeline({
+          from: this.model.schema,
+          to: {
+            tryFrom: (x) =>
+              x === value
+                ? { error: new RangeError(`Expected ${x} != ${value}`) }
+                : { ok: x },
+          },
+        }),
+      ],
     }
   }
 }
 
 /**
- * @template {number} Self
+ * @template {API.Int32} Self
  * @extends {Schema<Self>}
  * @implements {API.TryFrom<{ Self: Self, Input: API.Constant }>}
  */
-class NumberSchema extends Schema {
+class Int32 extends Schema {
   /**
-   * @template {number} Self
-   * @param {API.Constant} value
-   * @returns {API.Result<Self, RangeError>}
+   * @returns {API.Type}
    */
-  static tryFrom(value) {
-    if (typeof value === 'number') {
-      return { ok: /** @type {Self} */ (value) }
-    } else {
-      return { error: new RangeError(`Expected number, got ${typeof value}`) }
-    }
+  get type() {
+    return { Int32: this }
   }
 
   /**
    * @param {object} model
    * @param {API.Term<API.Entity>} model.entity
    * @param {API.Term<API.Attribute>} model.attribute
-   * @returns {NumberAttribute<Self>}
+   * @returns {Int32Attribute<Self>}
    */
   bind(model) {
-    return new NumberAttribute({ ...model, schema: this })
+    return new Int32Attribute({ ...model, schema: this })
   }
   /**
    * @param {API.Constant} value
    * @returns {API.Result<Self, RangeError>}
    */
   tryFrom(value) {
-    if (typeof value === 'number') {
+    if (Number.isInteger(value)) {
       return { ok: /** @type {Self} */ (value) }
     } else {
       return { error: new RangeError(`Expected number, got ${typeof value}`) }
@@ -219,19 +246,19 @@ class NumberSchema extends Schema {
    * @param {API.TryFrom<{ Input: Self, Self: Refined }>} constraint
    */
   refine(constraint) {
-    return new ToNumberSchema({ base: this, constraint })
+    return new ToInt32({ base: this, constraint })
   }
 }
 
 /**
- * @template {number} T
- * @template {number} Self
- * @extends {NumberSchema<Self>}
+ * @template {API.Int32} T
+ * @template {API.Int32} Self
+ * @extends {Int32<Self>}
  */
-class ToNumberSchema extends NumberSchema {
+class ToInt32 extends Int32 {
   /**
    * @param {object} model
-   * @param {PropertyKey} [model.key]
+   * @param {API.VariableID} [model.id]
    * @param {API.TryFrom<{ Input: API.Constant, Self: T }>} model.base
    * @param {API.TryFrom<{ Input: T, Self: Self }>} model.constraint
    */
@@ -249,11 +276,309 @@ class ToNumberSchema extends NumberSchema {
 }
 
 /**
+ * @template {number} Self
+ * @extends {DataAttribute<Self>}
+ */
+class Int32Attribute extends DataAttribute {
+  /**
+   * @param {number} value
+   * @returns {API.Clause}
+   */
+  greaterThan(value) {
+    return {
+      match: [
+        this.model.entity,
+        this.model.attribute,
+        new ToInt32({
+          base: this.model.schema,
+          constraint: {
+            tryFrom: (x) => {
+              return x > value
+                ? { ok: x }
+                : { error: new RangeError(`Expected ${x} > ${value}`) }
+            },
+          },
+        }),
+      ],
+    }
+  }
+
+  /**
+   * @param {number} value
+   * @returns {API.Clause}
+   */
+  lessThan(value) {
+    return {
+      match: [
+        this.model.entity,
+        this.model.attribute,
+        new ToInt32({
+          base: this.model.schema,
+          constraint: {
+            tryFrom: (x) => {
+              return x < value
+                ? { ok: x }
+                : { error: new RangeError(`Expected ${x} > ${value}`) }
+            },
+          },
+        }),
+      ],
+    }
+  }
+}
+
+/**
+ * @template {API.Float32} Self
+ * @extends {Schema<Self>}
+ * @implements {API.TryFrom<{ Self: Self, Input: API.Constant }>}
+ */
+class Float extends Schema {
+  /**
+   * @returns {API.Type}
+   */
+  get type() {
+    return { Float32: this }
+  }
+
+  /**
+   * @param {object} model
+   * @param {API.Term<API.Entity>} model.entity
+   * @param {API.Term<API.Attribute>} model.attribute
+   * @returns {FloatAttribute<Self>}
+   */
+  bind(model) {
+    return new FloatAttribute({ ...model, schema: this })
+  }
+  /**
+   * @param {API.Constant} value
+   * @returns {API.Result<Self, RangeError>}
+   */
+  tryFrom(value) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return { ok: /** @type {Self} */ (value) }
+    } else {
+      return { error: new RangeError(`Expected float, got ${typeof value}`) }
+    }
+  }
+
+  /**
+   * @template {API.Float32} Refined
+   * @param {API.TryFrom<{ Input: Self, Self: Refined }>} constraint
+   */
+  refine(constraint) {
+    return new ToFloat({ base: this, constraint })
+  }
+}
+
+/**
+ * @template {API.Float32} T
+ * @template {API.Float32} Self
+ * @extends {Float<Self>}
+ */
+class ToFloat extends Float {
+  /**
+   * @param {object} model
+   * @param {API.VariableID} [model.id]
+   * @param {API.TryFrom<{ Input: API.Constant, Self: T }>} model.base
+   * @param {API.TryFrom<{ Input: T, Self: Self }>} model.constraint
+   */
+  constructor(model) {
+    super(model)
+    this.model = model
+  }
+  /**
+   * @param {API.Constant} value
+   */
+  tryFrom(value) {
+    const result = this.model.base.tryFrom(value)
+    return result.error ? result : this.model.constraint.tryFrom(result.ok)
+  }
+}
+
+/**
+ * @template {API.Float32} Self
+ * @extends {DataAttribute<Self>}
+ */
+class FloatAttribute extends DataAttribute {
+  /**
+   * @param {number} value
+   * @returns {API.Clause}
+   */
+  greaterThan(value) {
+    return {
+      match: [
+        this.model.entity,
+        this.model.attribute,
+        new ToFloat({
+          base: this.model.schema,
+          constraint: {
+            tryFrom: (x) => {
+              return x > value
+                ? { ok: x }
+                : { error: new RangeError(`Expected ${x} > ${value}`) }
+            },
+          },
+        }),
+      ],
+    }
+  }
+
+  /**
+   * @param {number} value
+   * @returns {API.Clause}
+   */
+  lessThan(value) {
+    return {
+      match: [
+        this.model.entity,
+        this.model.attribute,
+        new ToFloat({
+          base: this.model.schema,
+          constraint: {
+            tryFrom: (x) => {
+              return x < value
+                ? { ok: x }
+                : { error: new RangeError(`Expected ${x} > ${value}`) }
+            },
+          },
+        }),
+      ],
+    }
+  }
+}
+
+/**
+ * @template {API.Int64} Self
+ * @extends {Schema<Self>}
+ * @implements {API.TryFrom<{ Self: Self, Input: API.Constant }>}
+ */
+class Int64 extends Schema {
+  /**
+   * @returns {API.Type}
+   */
+  get type() {
+    return { Int64: this }
+  }
+
+  /**
+   * @param {object} model
+   * @param {API.Term<API.Entity>} model.entity
+   * @param {API.Term<API.Attribute>} model.attribute
+   * @returns {Int64Attribute<Self>}
+   */
+  bind(model) {
+    return new Int64Attribute({ ...model, schema: this })
+  }
+  /**
+   * @param {API.Constant} value
+   * @returns {API.Result<Self, RangeError>}
+   */
+  tryFrom(value) {
+    if (typeof value === 'bigint') {
+      return { ok: /** @type {Self} */ (value) }
+    } else {
+      return { error: new RangeError(`Expected number, got ${typeof value}`) }
+    }
+  }
+
+  /**
+   * @template {API.Int64} Refined
+   * @param {API.TryFrom<{ Input: Self, Self: Refined }>} constraint
+   */
+  refine(constraint) {
+    return new ToInt64({ base: this, constraint })
+  }
+}
+
+/**
+ * @template {API.Int64} T
+ * @template {API.Int64} Self
+ * @extends {Int64<Self>}
+ */
+class ToInt64 extends Int64 {
+  /**
+   * @param {object} model
+   * @param {API.VariableID} [model.id]
+   * @param {API.TryFrom<{ Input: API.Constant, Self: T }>} model.base
+   * @param {API.TryFrom<{ Input: T, Self: Self }>} model.constraint
+   */
+  constructor(model) {
+    super(model)
+    this.model = model
+  }
+  /**
+   * @param {API.Constant} value
+   */
+  tryFrom(value) {
+    const result = this.model.base.tryFrom(value)
+    return result.error ? result : this.model.constraint.tryFrom(result.ok)
+  }
+}
+
+/**
+ * @template {API.Int64} Self
+ * @extends {DataAttribute<Self>}
+ */
+class Int64Attribute extends DataAttribute {
+  /**
+   * @param {API.Int64} value
+   * @returns {API.Clause}
+   */
+  greaterThan(value) {
+    return {
+      match: [
+        this.model.entity,
+        this.model.attribute,
+        new ToInt64({
+          base: this.model.schema,
+          constraint: {
+            tryFrom: (x) => {
+              return x > value
+                ? { ok: x }
+                : { error: new RangeError(`Expected ${x} > ${value}`) }
+            },
+          },
+        }),
+      ],
+    }
+  }
+
+  /**
+   * @param {API.Int64} value
+   * @returns {API.Clause}
+   */
+  lessThan(value) {
+    return {
+      match: [
+        this.model.entity,
+        this.model.attribute,
+        new ToInt64({
+          base: this.model.schema,
+          constraint: {
+            tryFrom: (x) => {
+              return x < value
+                ? { ok: x }
+                : { error: new RangeError(`Expected ${x} > ${value}`) }
+            },
+          },
+        }),
+      ],
+    }
+  }
+}
+
+/**
  * @template {string} Self
  * @extends {Schema<Self>}
  * @implements {API.TryFrom<{ Self: Self, Input: API.Constant }>}
  */
 class StringSchema extends Schema {
+  /**
+   * @returns {API.Type}
+   */
+  get type() {
+    return { String: this }
+  }
   /**
    * @param {object} model
    * @param {API.Term<API.Entity>} model.entity
@@ -292,7 +617,7 @@ class StringSchema extends Schema {
 class ToStringSchema extends StringSchema {
   /**
    * @param {object} model
-   * @param {PropertyKey} [model.key]
+   * @param {API.VariableID} [model.id]
    * @param {API.TryFrom<{ Input: API.Constant, Self: T }>} model.base
    * @param {API.TryFrom<{ Input: T, Self: Self }>} model.constraint
    */
@@ -310,148 +635,6 @@ class ToStringSchema extends StringSchema {
 }
 
 /**
- * @template {boolean} T
- * @extends {Schema<T>}
- * @implements {API.TryFrom<{ Self: T, Input: API.Constant }>}
- */
-class BooleanSchema extends Schema {
-  /**
-   * @param {API.Constant} value
-   * @returns {API.Result<T, RangeError>}
-   */
-  tryFrom(value) {
-    if (typeof value === 'boolean') {
-      return { ok: /** @type {T} */ (value) }
-    } else {
-      return { error: new RangeError(`Expected number, got ${typeof value}`) }
-    }
-  }
-}
-
-/**
- * @param {API.Term} variable
- */
-export const dependencies = function* (variable) {
-  // If variable is the data attribute we need to make sure it is matched
-  // to be materialized.
-  if (variable instanceof DataAttribute) {
-    yield variable.match()
-  }
-}
-
-/**
- * @template {API.Constant} T
- * @extends {Schema<T>}
- */
-class DataAttribute {
-  /**
-   * @param {object} model
-   * @param {API.Variable<T>} model.schema
-   * @param {API.Term<API.Attribute>} model.attribute
-   * @param {API.Term<API.Entity>} model.entity
-   */
-  constructor(model) {
-    this.model = model
-  }
-
-  [Symbol.toPrimitive]() {
-    return getPropertyKey(this)
-  }
-
-  /**
-   * @param {API.Constant} value
-   * @returns {API.Result<T, Error>}
-   */
-  tryFrom(value) {
-    return this.model.schema.tryFrom(value)
-  }
-
-  /**
-   * @param {API.Term<API.Constant>} value
-   * @returns {API.Pattern}
-   */
-  is(value) {
-    return [this.model.entity, this.model.attribute, value]
-  }
-
-  /**
-   * @returns {API.Pattern}
-   */
-  match() {
-    return [this.model.entity, this.model.attribute, this]
-  }
-
-  /**
-   * @template {T} Not
-   * @param {Not} value
-   * @returns {API.Pattern}
-   */
-  not(value) {
-    return [
-      this.model.entity,
-      this.model.attribute,
-      new SchemaPipeline({
-        from: this.model.schema,
-        to: {
-          tryFrom: (x) =>
-            x === value
-              ? { error: new RangeError(`Expected ${x} != ${value}`) }
-              : { ok: x },
-        },
-      }),
-    ]
-  }
-}
-
-/**
- * @template {number} Self
- * @extends {DataAttribute<Self>}
- */
-class NumberAttribute extends DataAttribute {
-  /**
-   * @param {number} value
-   * @returns {API.Pattern}
-   */
-  greaterThan(value) {
-    return [
-      this.model.entity,
-      this.model.attribute,
-      new ToNumberSchema({
-        base: this.model.schema,
-        constraint: {
-          tryFrom: (x) => {
-            return x > value
-              ? { ok: x }
-              : { error: new RangeError(`Expected ${x} > ${value}`) }
-          },
-        },
-      }),
-    ]
-  }
-
-  /**
-   * @param {number} value
-   * @returns {API.Pattern}
-   */
-  lessThan(value) {
-    return [
-      this.model.entity,
-      this.model.attribute,
-      new ToNumberSchema({
-        base: this.model.schema,
-        constraint: {
-          tryFrom: (x) => {
-            return x < value
-              ? { ok: x }
-              : { error: new RangeError(`Expected ${x} > ${value}`) }
-          },
-        },
-      }),
-    ]
-  }
-}
-
-/**
  * @template {string} T
  * @extends {DataAttribute<T>}
  */
@@ -459,97 +642,107 @@ class StringAttribute extends DataAttribute {
   /**
    * @template {string} Prefix
    * @param {Prefix} prefix
-   * @returns {API.Pattern}
+   * @returns {API.Clause}
    */
   startsWith(prefix) {
-    return [
-      this.model.entity,
-      this.model.attribute,
-      new ToStringSchema({
-        base: this.model.schema,
-        constraint: {
-          tryFrom: (x) => {
-            return x.startsWith(prefix)
-              ? { ok: x }
-              : {
-                  error: new RangeError(
-                    `Expected ${x} to start with ${prefix}`
-                  ),
-                }
+    return {
+      match: [
+        this.model.entity,
+        this.model.attribute,
+        new ToStringSchema({
+          base: this.model.schema,
+          constraint: {
+            tryFrom: (x) => {
+              return x.startsWith(prefix)
+                ? { ok: x }
+                : {
+                    error: new RangeError(
+                      `Expected ${x} to start with ${prefix}`
+                    ),
+                  }
+            },
           },
-        },
-      }),
-    ]
+        }),
+      ],
+    }
   }
   /**
    * @template {string} Prefix
    * @param {Prefix} prefix
-   * @returns {API.Pattern}
+   * @returns {API.Clause}
    */
   doesNotStartsWith(prefix) {
-    return [
-      this.model.entity,
-      this.model.attribute,
-      new ToStringSchema({
-        base: this.model.schema,
-        constraint: {
-          tryFrom: (x) => {
-            return x.startsWith(prefix)
-              ? {
-                  error: new RangeError(
-                    `Expected ${x} to not start with ${prefix}`
-                  ),
-                }
-              : { ok: x }
+    return {
+      match: [
+        this.model.entity,
+        this.model.attribute,
+        new ToStringSchema({
+          base: this.model.schema,
+          constraint: {
+            tryFrom: (x) => {
+              return x.startsWith(prefix)
+                ? {
+                    error: new RangeError(
+                      `Expected ${x} to not start with ${prefix}`
+                    ),
+                  }
+                : { ok: x }
+            },
           },
-        },
-      }),
-    ]
+        }),
+      ],
+    }
   }
   /**
    * @template {string} Suffix
    * @param {Suffix} suffix
-   * @returns {API.Pattern}
+   * @returns {API.Clause}
    */
   endsWith(suffix) {
-    return [
-      this.model.entity,
-      this.model.attribute,
-      new ToStringSchema({
-        base: this.model.schema,
-        constraint: {
-          tryFrom: (x) => {
-            return x.endsWith(suffix)
-              ? { ok: x }
-              : {
-                  error: new RangeError(`Expected ${x} to end with ${suffix}`),
-                }
+    return {
+      match: [
+        this.model.entity,
+        this.model.attribute,
+        new ToStringSchema({
+          base: this.model.schema,
+          constraint: {
+            tryFrom: (x) => {
+              return x.endsWith(suffix)
+                ? { ok: x }
+                : {
+                    error: new RangeError(
+                      `Expected ${x} to end with ${suffix}`
+                    ),
+                  }
+            },
           },
-        },
-      }),
-    ]
+        }),
+      ],
+    }
   }
   /**
    * @param {string} chunk
-   * @returns {API.Pattern}
+   * @returns {API.Clause}
    */
   includes(chunk) {
-    return [
-      this.model.entity,
-      this.model.attribute,
-      new ToStringSchema({
-        base: this.model.schema,
-        constraint: {
-          tryFrom: (x) => {
-            return x.includes(chunk)
-              ? { ok: x }
-              : {
-                  error: new RangeError(`Expected ${x} to include ${chunk}`),
-                }
+    return {
+      match: [
+        this.model.entity,
+        this.model.attribute,
+        new ToStringSchema({
+          base: this.model.schema,
+          constraint: {
+            tryFrom: (x) => {
+              return x.includes(chunk)
+                ? { ok: x }
+                : {
+                    error: new RangeError(`Expected ${x} to include ${chunk}`),
+                  }
+            },
           },
-        },
-      }),
-    ]
+        }),
+      ],
+    }
   }
 
   toLowerCase() {
@@ -577,6 +770,80 @@ class StringAttribute extends DataAttribute {
   }
 }
 
+/**
+ * @template {boolean} T
+ * @extends {Schema<T>}
+ * @implements {API.TryFrom<{ Self: T, Input: API.Constant }>}
+ */
+class BooleanSchema extends Schema {
+  /**
+   * @returns {API.Type}
+   */
+  get type() {
+    return { Boolean: this }
+  }
+  /**
+   * @param {API.Constant} value
+   * @returns {API.Result<T, RangeError>}
+   */
+  tryFrom(value) {
+    if (typeof value === 'boolean') {
+      return { ok: /** @type {T} */ (value) }
+    } else {
+      return { error: new RangeError(`Expected number, got ${typeof value}`) }
+    }
+  }
+}
+
+/**
+ * @template {{}|null} T
+ * @extends {Schema<API.Link<T>>}
+ * @implements {API.TryFrom<{ Self: API.Link<T>, Input: API.Constant }>}
+ */
+class LinkSchema extends Schema {
+  /**
+   * @param {API.Constant} value
+   * @returns {API.Result<API.Link<T>, RangeError>}
+   */
+  tryFrom(value) {
+    if (Link.is(value)) {
+      return { ok: /** @type {any} */ (value) }
+    } else {
+      return { error: new RangeError(`Expected number, got ${typeof value}`) }
+    }
+  }
+}
+
+/**
+ * @template {API.Bytes} Self
+ * @extends {Schema<Self>}
+ * @implements {API.TryFrom<{ Self: Self, Input: API.Constant }>}
+ */
+class Bytes extends Schema {
+  /**
+   * @param {API.Constant} value
+   * @returns {API.Result<Self, RangeError>}
+   */
+  tryFrom(value) {
+    if (value instanceof Uint8Array) {
+      return { ok: /** @type {Self} */ (value) }
+    } else {
+      return { error: new RangeError(`Expected bytes, got ${typeof value}`) }
+    }
+  }
+}
+
+/**
+ * @param {API.Term} variable
+ */
+export const dependencies = function* (variable) {
+  // If variable is the data attribute we need to make sure it is matched
+  // to be materialized.
+  if (variable instanceof DataAttribute) {
+    yield variable.match()
+  }
+}
+
 const ID = Symbol.for('entity/id')
 /**
  * @typedef {{[ID]: number}} NewEntity
@@ -584,7 +851,7 @@ const ID = Symbol.for('entity/id')
  */
 
 /**
- * @template {API.Bindings} Attributes
+ * @template {API.Variables} Attributes
  * @extends {Schema<API.Entity>}
  */
 class EntityView extends Schema {
@@ -608,7 +875,7 @@ class EntityView extends Schema {
 
   /**
    * @param {Partial<{[Key in keyof Attributes]: API.Term}>} pattern
-   * @returns {{where: API.Pattern[]}}
+   * @returns {{where: API.Clause[]}}
    */
   match(pattern = {}) {
     const where = []
@@ -622,7 +889,7 @@ class EntityView extends Schema {
         where.push(...term.match().where)
       }
 
-      where.push(/** @type {API.Pattern} */ ([this, key, term]))
+      where.push(/** @type {API.Clause} */ ({ match: [this, key, term] }))
     }
 
     return { where }
@@ -642,3 +909,20 @@ class EntityView extends Schema {
     }
   }
 }
+
+export const link = () => new LinkSchema()
+
+export const bytes = () => new Bytes()
+
+export const string = () => new StringSchema()
+
+export const integer = () => new Int32()
+
+export const float = () => new Float()
+
+export const boolean = () => new BooleanSchema()
+
+/**
+ * @type {API.Variable<any>} T
+ */
+export const _ = new Schema({ id: 0 })

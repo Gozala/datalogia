@@ -9,20 +9,20 @@ const proofsDB = DB.Memory.create(proofs)
 export const testQueryBuilder = {
   'test query builder': async (assert) => {
     const query = select({
-      uploadLink: DB.Schema.string(),
-      storeLink: DB.Schema.string(),
+      uploadLink: DB.string(),
+      storeLink: DB.string(),
     }).where(({ uploadLink, storeLink }) => {
-      const space = DB.Schema.string()
-      const uploadID = DB.Schema.string()
-      const storeID = DB.Schema.string()
+      const space = DB.string()
+      const uploadID = DB.string()
+      const storeID = DB.string()
 
       return [
-        [uploadLink, 'capabilities', uploadID],
-        [uploadID, 'can', 'upload/add'],
-        [uploadID, 'with', space],
-        [storeLink, 'capabilities', storeID],
-        [storeID, 'can', 'store/add'],
-        [storeID, 'with', space],
+        DB.match([uploadLink, 'capabilities', uploadID]),
+        DB.match([uploadID, 'can', 'upload/add']),
+        DB.match([uploadID, 'with', space]),
+        DB.match([storeLink, 'capabilities', storeID]),
+        DB.match([storeID, 'can', 'store/add']),
+        DB.match([storeID, 'with', space]),
       ]
     })
 

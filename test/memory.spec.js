@@ -10,12 +10,12 @@ export const testDB = {
   'test memory db': async (assert) => {
     const db = DB.Memory.create(proofsDB)
 
-    const uploadLink = DB.Schema.string()
-    const storeLink = DB.Schema.string()
+    const uploadLink = DB.string()
+    const storeLink = DB.string()
 
-    const space = DB.Schema.string()
-    const uploadID = DB.Schema.string()
-    const storeID = DB.Schema.string()
+    const space = DB.string()
+    const uploadID = DB.string()
+    const storeID = DB.string()
 
     const matches = DB.evaluate(db, {
       and: [
@@ -54,7 +54,7 @@ export const testDB = {
       ],
     })
 
-    const e = DB.Schema.string()
+    const e = DB.string()
 
     const matches = DB.evaluate(db, {
       match: [e, 'age', 42],
@@ -76,11 +76,11 @@ export const testDB = {
   'is predicate': async (assert) => {
     const db = DB.Memory.create(moviesDB)
 
-    const arnold = DB.Schema.integer()
-    const director = DB.Schema.integer()
-    const movie = DB.Schema.integer()
-    const directorName = DB.Schema.string()
-    const movieTitle = DB.Schema.string()
+    const arnold = DB.integer()
+    const director = DB.integer()
+    const movie = DB.integer()
+    const directorName = DB.string()
+    const movieTitle = DB.string()
 
     const matches = DB.evaluate(db, {
       and: [
@@ -113,8 +113,8 @@ export const testDB = {
   'test facts': async (assert) => {
     const db = DB.Memory.create(employeeDB)
 
-    const id = DB.Schema.integer()
-    const name = DB.Schema.string()
+    const id = DB.integer()
+    const name = DB.string()
     const matches = DB.evaluate(db, {
       and: [
         { match: [id, 'job', 'Computer programmer'] },
@@ -131,10 +131,10 @@ export const testDB = {
   'test supervisor': async (assert) => {
     const db = DB.Memory.create(employeeDB)
 
-    const supervisor = DB.Schema.integer()
-    const supervisorName = DB.Schema.string()
-    const employee = DB.Schema.integer()
-    const employeeName = DB.Schema.string()
+    const supervisor = DB.integer()
+    const supervisorName = DB.string()
+    const employee = DB.integer()
+    const employeeName = DB.string()
     const matches = DB.evaluate(db, {
       and: [
         { match: [employee, 'supervisor', supervisor] },
@@ -165,9 +165,9 @@ export const testDB = {
     const db = DB.Memory.create(employeeDB)
 
     const employee = {
-      id: DB.Schema.integer(),
-      name: DB.Schema.string(),
-      salary: DB.Schema.integer(),
+      id: DB.integer(),
+      name: DB.string(),
+      salary: DB.integer(),
     }
 
     const matches = DB.evaluate(db, {
@@ -248,15 +248,15 @@ export const testDB = {
   'test or': async (assert) => {
     const db = DB.Memory.create(employeeDB)
 
-    const ben = DB.Schema.integer()
-    const alyssa = DB.Schema.integer()
+    const ben = DB.integer()
+    const alyssa = DB.integer()
     const employee = {
-      id: DB.Schema.integer(),
-      name: DB.Schema.string(),
+      id: DB.integer(),
+      name: DB.string(),
     }
     const supervisor = {
-      id: DB.Schema.integer(),
-      name: DB.Schema.string(),
+      id: DB.integer(),
+      name: DB.string(),
     }
 
     const matches = DB.evaluate(db, {
@@ -293,7 +293,7 @@ export const testDB = {
     const db = DB.Memory.create(employeeDB)
 
     const ben = {
-      id: DB.Schema.integer(),
+      id: DB.integer(),
       name: 'Bitdiddle Ben',
     }
 
@@ -302,9 +302,9 @@ export const testDB = {
     }
 
     const employee = {
-      id: DB.Schema.integer(),
-      name: DB.Schema.string(),
-      job: DB.Schema.string(),
+      id: DB.integer(),
+      name: DB.string(),
+      job: DB.string(),
     }
 
     // finds all people supervised by Ben Bitdiddle who are not computer programmers

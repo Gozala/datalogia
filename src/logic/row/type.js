@@ -1,45 +1,26 @@
-import * as API from './api.js'
-import * as Type from './type.js'
+import * as API from '../../api.js'
+import * as Type from '../../type.js'
 
 /**
- * @template {API.RowType} RowType
+ * @param {API.RowType} type
+ * @returns {type is { Any: API.RowType['Any'] & {} }}
  */
-class Row {
+export const isAny = (type) => type.Any != null
+
+class AnyRow {
   /**
-   * @param {object} source
-   * @param {RowType} source.type
-   * @param {API.RowID} source.id
+   * @param {API.Constant} value
    */
-  constructor({ type, id }) {
-    this.id = id
-    this.type = type
+  tryFrom(value) {
+    return { ok: value }
+  }
+
+  get Any() {
+    return this
   }
 }
 
-/**
- * @template {API.RowType} RowType
- * @param {object} source
- * @param {RowType} source.type
- * @param {API.RowID} source.id
- */
-
-export const create = (source) => new Row(source)
-
-export const Any = {
-  Any: {
-    /**
-     * @param {API.Constant} value
-     */
-    tryFrom: (value) => ({ ok: value }),
-  },
-}
-
-/**
- *
- * @param {API.RowType} type
- * @returns {type is { Any: {} }}
- */
-export const isAny = (type) => type.Any != null
+export const Any = new AnyRow()
 
 /**
  * @param {API.RowType} type
@@ -99,3 +80,9 @@ export const toString = (type) => {
     return Type.toString(type)
   }
 }
+
+/**
+ * @param {API.RowType} type
+ */
+export const inspect = (type) =>
+  isAny(type) ? { Type: {} } : Type.inspect(type)

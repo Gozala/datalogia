@@ -1,8 +1,5 @@
 import * as API from './api.js'
-import * as CBOR from '@ipld/dag-cbor'
-import * as Blake3 from '@noble/hashes/blake3'
-import * as Link from 'multiformats/link'
-import * as Digest from 'multiformats/hashes/digest'
+import * as Link from './link.js'
 
 /**
  * @param {object} source
@@ -21,11 +18,8 @@ export const create = ({ facts } = { facts: [] }) => {
 /**
  * @param {[API.Entity|null, API.Attribute|null, API.Constant|null]} model
  */
-export const toKey = ([entity, attribute, value]) => {
-  const bytes = CBOR.encode([entity, attribute, value])
-  const digest = Blake3.blake3(bytes)
-  return Link.create(CBOR.code, Digest.create(0x1e, digest))
-}
+export const toKey = ([entity, attribute, value]) =>
+  Link.of([entity, attribute, value])
 
 /**
  *

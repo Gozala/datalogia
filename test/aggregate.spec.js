@@ -10,10 +10,10 @@ import { count } from '../src/aggregate.js'
  */
 export const testAggregate = {
   'skip popularProfile': async (assert) => {
-    const follower = DB.Schema.integer()
-    const follows = DB.Schema.integer()
+    const follower = DB.integer()
+    const follows = DB.integer()
 
-    const operand = DB.Schema.integer()
+    const operand = DB.integer()
     const same = rule({
       match: {
         operand,
@@ -26,13 +26,13 @@ export const testAggregate = {
       where: [{ match: [follower, 'follows', follows] }],
     })
 
-    const id = DB.Schema.integer()
-    const profile = DB.Schema.integer()
-    const c = DB.Schema.integer()
+    const id = DB.integer()
+    const profile = DB.integer()
+    const c = DB.integer()
     const popularProfile = rule({
       match: { id },
       where: [
-        { match: [id, 'profile', DB.Schema._] },
+        { match: [id, 'profile', DB._] },
         Follower.match({ follower: profile, follows: id }),
         same.match({ operand: c, modifier: count.of(profile) }),
         {

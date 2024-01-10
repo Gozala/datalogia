@@ -1,10 +1,8 @@
-import * as API from './api.js'
+import * as API from '../api.js'
 
 /**
- * @template {Record<API.RowID, API.Row>} Rows
- * @param {object} source
- * @param {API.RowID} source.id
- * @param {Rows} source.rows
+ * @template {API.Rows} Rows
+ * @param {API.Table<Rows>} source
  */
 export const create = (source) => new Table(source)
 
@@ -25,7 +23,6 @@ export const rows = (table) => table.rows
 export const hasRow = (table, id) => table.rows.hasOwnProperty(id)
 
 /**
- * @template Fallback
  * @param {API.Table} table
  * @param {API.RowID} id
  * @returns {API.Row|undefined}
@@ -33,16 +30,19 @@ export const hasRow = (table, id) => table.rows.hasOwnProperty(id)
 export const getRow = (table, id) => table.rows[id]
 
 /**
- * @template {Record<API.RowID, API.Row>} Rows
+ * @template {API.Rows} Rows
  */
 class Table {
   /**
-   * @param {object} source
-   * @param {API.RowID} source.id
-   * @param {Rows} source.rows
+   * @param {API.Table<Rows>} model
    */
-  constructor({ id, rows }) {
-    this.id = id
-    this.rows = rows
+  constructor(model) {
+    this.model = model
+  }
+  get id() {
+    return this.model.id
+  }
+  get rows() {
+    return this.model.rows
   }
 }

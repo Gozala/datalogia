@@ -10,12 +10,12 @@ const moviesDB = DB.Memory.create(movies)
  */
 export const testDB = {
   'test capabilities across ucans': async (assert) => {
-    const uploadLink = DB.Schema.string()
-    const storeLink = DB.Schema.string()
+    const uploadLink = DB.string()
+    const storeLink = DB.string()
 
-    const space = DB.Schema.string()
-    const uploadID = DB.Schema.string()
-    const storeID = DB.Schema.string()
+    const space = DB.string()
+    const uploadID = DB.string()
+    const storeID = DB.string()
 
     const result = DB.query(proofsDB, {
       select: {
@@ -24,12 +24,12 @@ export const testDB = {
         space,
       },
       where: [
-        [uploadLink, 'capabilities', uploadID],
-        [uploadID, 'can', 'upload/add'],
-        [uploadID, 'with', space],
-        [storeLink, 'capabilities', storeID],
-        [storeID, 'can', 'store/add'],
-        [storeID, 'with', space],
+        DB.match([uploadLink, 'capabilities', uploadID]),
+        DB.match([uploadID, 'can', 'upload/add']),
+        DB.match([uploadID, 'with', space]),
+        DB.match([storeLink, 'capabilities', storeID]),
+        DB.match([storeID, 'can', 'store/add']),
+        DB.match([storeID, 'with', space]),
       ],
     })
 
@@ -54,21 +54,21 @@ export const testDB = {
     ]
     const db = DB.Memory.create({ facts })
 
-    const e = DB.Schema.string()
+    const e = DB.string()
 
     assert.deepEqual(
       DB.query(db, {
         select: { e },
-        where: [[e, 'age', 42]],
+        where: [DB.match([e, 'age', 42])],
       }),
       [{ e: 'fred' }, { e: 'ethel' }]
     )
 
-    const x = DB.Schema.string()
+    const x = DB.string()
     assert.deepEqual(
       DB.query(db, {
         select: { x },
-        where: [[DB.Schema._, 'likes', x]],
+        where: [DB.match([DB._, 'likes', x])],
       }),
       [{ x: 'pizza' }, { x: 'opera' }, { x: 'sushi' }]
     )
@@ -76,7 +76,7 @@ export const testDB = {
 
   'sketch pull pattern': (assert) => {
     const Person = DB.entity({
-      'person/name': DB.Schema.string(),
+      'person/name': DB.string(),
     })
 
     const director = new Person()
@@ -84,7 +84,7 @@ export const testDB = {
     const actor = new Person()
 
     const Movie = DB.entity({
-      'movie/title': DB.Schema.string(),
+      'movie/title': DB.string(),
       'movie/director': director,
       'movie/cast': actor,
     })
