@@ -34,6 +34,7 @@ export const testAggregate = {
       where: [
         { match: [id, 'profile', DB._] },
         Follower.match({ follower: profile, follows: id }),
+        // @ts-expect-error - we do not yet have aggregators
         same.match({ operand: c, modifier: count.of(profile) }),
         {
           when: DB.when(

@@ -68,9 +68,9 @@ export const boundVariables = function* (self, ids) {
 
   for (const variable of variables(self)) {
     const id = Variable.key(variable)
-    if (ids.has(id)) {
-      result.add(id)
-    }
+    // if (ids.has(id)) {
+    //   result.add(id)
+    // }
   }
 
   return result

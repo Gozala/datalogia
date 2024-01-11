@@ -43,7 +43,7 @@ export const variables = function* (self) {
  */
 export const checkBindings = (self, ids) => {
   for (const variable of variables(self)) {
-    const id = Variable.key(variable)
+    const id = Variable.id(variable)
     if (!ids.has(id)) {
       return false
     }

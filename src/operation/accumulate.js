@@ -94,7 +94,7 @@ export const apply = (self, bindings) => {
 export const toString = (self) => {
   const select = Selector.toString(self.variables)
   const where = Where.toString(self.when)
-  const into = Term.toString(self.target)
+  const into = Variable.toString(self.target)
 
   return `{accumulate: {select:${select}, where:${where}, into:${into} }`
 }

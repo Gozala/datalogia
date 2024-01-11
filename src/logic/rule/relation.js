@@ -48,14 +48,14 @@ export const boundVariables = function* (self, ids) {
   const result = new Set()
 
   if (Variable.is(self.link)) {
-    const id = Variable.key(self.link)
+    const id = Variable.id(self.link)
     if (ids.has(id)) {
       result.add(id)
     }
   }
 
   for (const variable of variables(self)) {
-    const id = Variable.key(variable)
+    const id = Variable.id(variable)
     if (ids.has(id)) {
       result.add(id)
     }

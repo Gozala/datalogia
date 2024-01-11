@@ -24,7 +24,7 @@ import * as Row from '../row.js'
  * @returns
  */
 const create = (relation) =>
-  new PropositionBuilder({
+  new AssociationBuilder({
     relation,
     variables: {},
   })
@@ -33,7 +33,7 @@ const create = (relation) =>
  *
  * @template {API.Selector} Variables
  * @param {API.Declaration} relation
- * @param {(builder: PropositionBuilder<{}>) => PropositionBuilder<Variables>} assemble
+ * @param {(builder: AssociationBuilder<{}>) => AssociationBuilder<Variables>} assemble
  * @returns {API.Result<API.InferBindings<Variables>, Error>}
  */
 export const build = (relation, assemble) => assemble(create(relation)).build()
@@ -41,7 +41,7 @@ export const build = (relation, assemble) => assemble(create(relation)).build()
 /**
  * @template {API.Selector} Variables
  */
-class PropositionBuilder {
+class AssociationBuilder {
   /**
    * @param {Model<Variables>} model
    */
@@ -54,7 +54,7 @@ class PropositionBuilder {
   /**
    * @template {API.Selector} Extension
    * @param {Extension} bindings
-   * @returns {PropositionBuilder<Variables & Extension>}
+   * @returns {AssociationBuilder<Variables & Extension>}
    */
   bind(bindings) {
     Object.assign(this.model.variables, bindings)

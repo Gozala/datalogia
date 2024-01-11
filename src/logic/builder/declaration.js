@@ -32,8 +32,8 @@ export const build = (id, source, assemble) =>
   assemble(create(id, source)).build()
 
 /**
- * @template {API.Rows} Rows
- * @template {API.Source} Source
+ * @template {API.Rows} [Rows=API.Rows]
+ * @template {API.Source} [Source=API.Source]
  */
 class DeclarationBuilder {
   /**
@@ -97,3 +97,5 @@ class DeclarationBuilder {
     return { ok: declaration }
   }
 }
+
+export { DeclarationBuilder as Builder }
