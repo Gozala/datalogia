@@ -33,8 +33,8 @@ export const testMore = {
           job: employee.job,
         },
         where: [
-          // startsWith(employee.job, 'Computer'),
-          employee.job.startsWith('Computer'),
+          startsWith(employee.job, 'Computer'),
+          // employee.job.startsWith('Computer'),
         ],
       }),
       [

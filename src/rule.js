@@ -135,7 +135,7 @@ class RelationsBuilder {
     if (this.link) {
       if (Variable.is(this.link)) {
         Object.assign(this.bindings, {
-          [Variable.id(this.link)]: Schema.link(),
+          [Variable.key(this.link)]: Schema.link(),
         })
       }
     }
@@ -143,7 +143,7 @@ class RelationsBuilder {
     for (const [key, value] of Object.entries(this.bindings)) {
       if (Variable.is(value)) {
         Object.assign(this.bindings, {
-          [Variable.id(value)]: Schema.link(),
+          [Variable.key(value)]: Schema.link(),
         })
       }
     }
@@ -214,21 +214,21 @@ class HeadBuilder {
       }
 
       if (Variable.is(term)) {
-        const type = variables[Variable.id(term)]
+        const type = variables[Variable.key(term)]
         if (type) {
-          const result = Row.unify(type, row.type)
+          const result = Row.Type.unify(type, row.type)
           const result2 = result.ok
-            ? Row.unify(result.ok, Variable.type(term))
+            ? Row.Type.unify(result.ok, Variable.type(term))
             : result
         } else {
           throw new RangeError(
-            `Clause not range restricted ${rowID} ${Variable.id(
+            `Clause not range restricted ${rowID} ${Variable.key(
               term
             ).toString()}`
           )
         }
       } else {
-        const result = Row.check(row.type, term)
+        const result = Row.Type.check(row.type, term)
         if (result.error) {
           throw new TypeError(
             `Row type conflict ${this.relation.id} ${rowID} : ${result.error.message}`

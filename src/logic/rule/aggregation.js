@@ -40,7 +40,7 @@ class Aggregation {
  */
 export const checkBindings = (self, from) => {
   for (const variable of variables(self)) {
-    const id = Variable.id(variable)
+    const id = Variable.key(variable)
     if (!(id in from)) {
       return false
     }
@@ -67,7 +67,7 @@ export const boundVariables = function* (self, ids) {
   const result = new Set()
 
   for (const variable of variables(self)) {
-    const id = Variable.id(variable)
+    const id = Variable.key(variable)
     if (ids.has(id)) {
       result.add(id)
     }

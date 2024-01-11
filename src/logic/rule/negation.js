@@ -32,7 +32,7 @@ class Negation {
  */
 export const checkBindings = (self, ids) => {
   for (const variable of variables(self)) {
-    const id = Variable.id(variable)
+    const id = Variable.key(variable)
     if (!ids.has(id)) {
       return false
     }

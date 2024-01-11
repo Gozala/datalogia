@@ -27,7 +27,7 @@ const VALUE = 2
  * @returns {API.InferBindings<Selection>[]}
  */
 export const query = (db, { select, where }) => {
-  const patterns = []
+  const clauses = [...where]
 
   /**
    * Selected fields may not explicitly appear in the where clause. To
@@ -63,17 +63,56 @@ export const query = (db, { select, where }) => {
    */
   for (const variable of Object.values(select)) {
     for (const clause of dependencies(variable)) {
-      patterns.push(clause)
+      clauses.push(clause)
     }
   }
 
   const matches = evaluate(db, {
-    and: [...where, ...patterns],
+    and: clauses.sort(byClause),
   })
 
   return [...matches].map((match) =>
     materialize(select, /** @type {API.InferBindings<Selection>} */ (match))
   )
+}
+
+/**
+ * @param {API.Clause} operand
+ * @param {API.Clause} modifier
+ */
+
+const byClause = (operand, modifier) =>
+  rateClause(operand) - rateClause(modifier)
+
+/**
+ * @param {API.Clause} clause
+ */
+const rateClause = (clause) => {
+  let score = 10
+  if (clause.match) {
+    const [entity, attribute, value] = clause.match
+    if (Variable.is(entity)) {
+      score = -3
+    }
+    if (Variable.is(attribute)) {
+      score = -2
+    }
+    if (Variable.is(value)) {
+      score = -1
+    }
+  } else if (clause.and) {
+    score -= 6
+  } else if (clause.or) {
+    score -= 7
+  } else if (clause.when) {
+    score -= 8
+  } else if (clause.not) {
+    score -= 9
+  } else if (clause.apply) {
+    score -= 10
+  }
+
+  return score
 }
 
 /**
@@ -320,7 +359,7 @@ export const matchConstant = (constant, value, frame) =>
  */
 export const matchVariable = (variable, data, frame) => {
   // Get key this variable is bound to in the context
-  const key = Variable.id(variable)
+  const key = Variable.key(variable)
   // If context already contains binding for we attempt to unify it with the
   // new data otherwise we bind the data to the variable.
   if (key in frame) {
@@ -403,7 +442,7 @@ const extendIfPossible = (variable, value, bindings) => {
       return {
         ok: /** @type {API.Bindings} */ ({
           ...bindings,
-          [Variable.id(variable)]: value,
+          [Variable.key(variable)]: value,
         }),
       }
     }
@@ -413,6 +452,6 @@ const extendIfPossible = (variable, value, bindings) => {
     // } else if (isDependent(value, variable, frame)) {
     //   return { error: new Error(`Can not self reference`) }
   } else {
-    return { ok: { ...bindings, [Variable.id(variable)]: value } }
+    return { ok: { ...bindings, [Variable.key(variable)]: value } }
   }
 }

@@ -81,7 +81,8 @@ const getVariableID = (variable) => {
   }
 }
 
-export const id = getPropertyKey
+export const key = getPropertyKey
+export const id = getVariableID
 
 /**
  * @param {API.Variable} variable
