@@ -6,45 +6,45 @@ Library for querying in-memory facts using [datalog].
 
 
 ```js
-import { Schema, query } from "datalogia"
+import * as DB from "datalogia"
 
 export const demo = (db) => {
   // We will be trying to find movie titles and director names for movies
-  // where Arnold Schwarzenegger casted. We do not a database schema for
-  // writes but we do need schema for queries meaning we want to define
+  // where Arnold Schwarzenegger casted. We do not need a database schema
+  // for writes but we do need schema for queries meaning we want to define
   // relations between entities and attributes.
 
-  // Since we will look for directors we define an entity which will have
+  // We well be looking for actors and directors that are entities with
   // "person/name" attribute.
-  const director = DB.entity({
-    "person/name": Schema.string(),
+  const Person = DB.entity({
+    "person/name": DB.string,
   })
 
-  // We also define entity actor that also has "person/name" attribute.
-  const actor = DB.entity({
-    "person/name": Schema.string(),
+  // We also define `Moive` entity with attributes for the director, cast
+  // and a title.
+  const Movie = DB.entity({
+    "movie/title": DB.string,
+    "movie/director": Person,
+    "movie/cast": Person,
   })
 
-  // Finally we define a movie entity that has relationship with actor and
-  // director entities and a "movie/title" attribute.
+  // No we'll define set of variables used by our query
+  const director = Person()
+  const actor = Person()
 
-  const movie = DB.entity({
-    "movie/title": Schema.string(),
-    "movie/director": director,
-    "movie/cast": actor,
-  })
-
-  query(db, {
-    // We want to select matched director name and matched movie titles from db
+  const results = DB.query(db, {
+    // We want find movie titles and their directors that
     select: {
       director: director["person/name"],
       movie: movie["movie/title"],
     },
     where: [
-      // where actor is named "Arnold Schwarzenegger"
-      actor.match({ "person/name": "Arnold Schwarzenegger" }),
-      // and where movie had an actor in the cast
-      movie.match({ "movie/cast": actor })
+      // Movie casted our actor
+      movie['movie/cast'].is(actor),
+      // Movie was directed by our director
+      movie['movie/director'].is(director),
+      // Actor is named 'Arnold Schwarzenegger
+      actor['preson/name'].is("Arnold Schwarzenegger")
     ],
   })
   // [
