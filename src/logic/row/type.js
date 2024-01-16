@@ -33,7 +33,7 @@ export const check = (type, value) => {
   if (isAny(type)) {
     return { ok: {} }
   } else {
-    return Type.satisfies(type, value)
+    return Type.check(type, value)
   }
 }
 
