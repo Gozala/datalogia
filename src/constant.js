@@ -39,6 +39,20 @@ export const equal = (self, other) => {
 }
 
 /**
+ *
+ * @param {API.Constant} self
+ */
+export const toJSON = (self) => {
+  if (self instanceof Uint8Array) {
+    return Bytes.toJSON(self)
+  } else if (Link.is(self)) {
+    return Link.toJSON(self)
+  } else {
+    return self
+  }
+}
+
+/**
  * @param {API.Constant} self
  */
 export const toString = (self) => {

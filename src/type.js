@@ -1,13 +1,122 @@
-import { isLink } from 'multiformats/link'
 import * as API from './api.js'
+import { is as isLink } from './link.js'
 
 /**
- * @template {Record<string, U>} U
- * @template {API.Variant<U>} Variant
- * @param {Variant} type
- * @returns {keyof Variant}
+ * Checks given `value` against the given `type` and returns `true` if type
+ * matches. Function can be used as [type predicate].
+ *
+ * [type predicate]: https://www.typescriptlang.org/docs/handbook/2/narrowing.html#using-type-predicates
+ *
+ * @example
+ *
+ * ```ts
+ * export const demo = (value: Constant) => {
+ *   if (Type.isTypeOf(Type.String, value)) {
+ *     // type was narrowed down to string
+ *     console.log(value.toUpperCase())
+ *   }
+ * }
+ * ```
+ *
+ * @template {API.Constant} T
+ * @param {API.Type<T>} type
+ * @param {API.Constant} value
+ * @returns {value is T}
  */
-export const discriminant = (type) => {
+export const isTypeOf = (type, value) => !unify(type, infer(value)).error
+
+/**
+ * Checks given `value` against the given `type` and returns either an ok
+ * result or type error.
+ *
+ * @template {API.Constant} T
+ * @param {API.Type<T>} type
+ * @param {API.Constant} value
+ * @returns {API.Result<API.Type, TypeError>}
+ */
+export const check = (type, value) => unify(type, infer(value))
+
+/**
+ * Attempts to unify give types and returns error if types can not be unified
+ * or the unified type.
+ *
+ * @param {API.Type} type
+ * @param {API.Type} other
+ * @returns {API.Result<API.Type, TypeError>}
+ */
+export const unify = (type, other) => {
+  const expect = toDiscriminant(type)
+  const actual = toDiscriminant(other)
+  if (expect === actual) {
+    return { ok: type }
+  } else {
+    return {
+      error: new TypeError(`Expected type ${expect}, instead got ${actual}`),
+    }
+  }
+}
+
+/**
+ * Infers the type of the given constant value. It wil throw an exception at
+ * runtime if the value passed is not a constant type, which should not happen
+ * if you type check the code but could if used from unchecked JS code.
+ *
+ * @param {API.Constant} value
+ * @returns {API.Type}
+ */
+export const infer = (value) => {
+  switch (typeof value) {
+    case 'boolean':
+      return Boolean
+    case 'string':
+      return String
+    case 'bigint':
+      return Int64
+    case 'number':
+      return Number.isInteger(value)
+        ? Int32
+        : Number.isFinite(value)
+          ? Float32
+          : unreachable(`Number ${value} can not be inferred`)
+    default: {
+      if (value instanceof Uint8Array) {
+        return Bytes
+      } else if (isLink(value)) {
+        return Link
+      } else {
+        throw Object.assign(new TypeError(`Object types are not supported`), {
+          value,
+        })
+      }
+    }
+  }
+}
+
+/**
+ * Returns JSON representation of the given type.
+ *
+ * @template {API.Constant} T
+ * @param {API.Type<T>} type
+ * @returns {API.Type<T>}
+ */
+export const toJSON = (type) => /** @type {any} */ ({ [toString(type)]: {} })
+
+/**
+ * Returns string representation of the given type.
+ *
+ * @param {API.Type} type
+ */
+export const toString = (type) => toDiscriminant(type)
+
+export { toJSON as inspect }
+
+/**
+ * Returns the discriminant of the given type.
+ *
+ * @param {API.Type} type
+ * @returns {string & keyof API.Type}
+ */
+export const toDiscriminant = (type) => {
   if (type.Boolean) {
     return 'Boolean'
   } else if (type.Bytes) {
@@ -23,209 +132,47 @@ export const discriminant = (type) => {
   } else if (type.String) {
     return 'String'
   } else {
-    return unreachable(`Invalid type ${type}`)
+    throw new TypeError(`Invalid type ${type}`)
   }
 }
 
 /**
  * @param {API.Type} type
- * @param {API.Constant} value
- * @returns {API.Result<{}, TypeError>}
+ * @returns {{[Case in keyof API.Type]: [Case, Unit, {[K in Case]: Unit}]}[keyof API.Type & string] & {}}
  */
-export const check = (type, value) => {
-  const other = typeOf(value)
-  const result = unify(type, other)
-  return result
-}
-
-/**
- * @param {API.Type} type
- * @param {API.Type} other
- * @returns {API.Result<API.Type, TypeError>}
- */
-export const unify = (type, other) => {
-  if (discriminant(type) === discriminant(other)) {
-    return { ok: type }
+export const match = (type) => {
+  if (type.Boolean) {
+    return ['Boolean', type.Boolean, type]
+  } else if (type.Bytes) {
+    return ['Bytes', type.Bytes, type]
+  } else if (type.Float32) {
+    return ['Float32', type.Float32, type]
+  } else if (type.Int32) {
+    return ['Int32', type.Int32, type]
+  } else if (type.Int64) {
+    return ['Int64', type.Int64, type]
+  } else if (type.Link) {
+    return ['Link', type.Link, type]
+  } else if (type.String) {
+    return ['String', type.String, type]
   } else {
-    return {
-      error: new TypeError(
-        `Expected ${toString(type)}, found ${toString(other)}`
-      ),
-    }
+    throw new TypeError(`Invalid type ${type}`)
   }
 }
-
-/**
- * @param {API.Constant} value
- * @returns {API.Type}
- */
-
-const typeOf = (value) => {
-  switch (typeof value) {
-    case 'boolean':
-      return boolean
-    case 'string':
-      return string
-    case 'number':
-      return Number.isInteger(value)
-        ? Int32
-        : Number.isFinite(value)
-          ? Float32
-          : unreachable(`Invalid number ${value}`)
-    case 'bigint':
-      return Int64
-    default: {
-      if (value instanceof Uint8Array) {
-        return Bytes
-      } else if (isLink(value)) {
-        return Link
-      } else {
-        return unreachable(`Invalid type ${typeof value}`)
-      }
-    }
-  }
-}
-
-/**
- * @param {API.Type} type
- * @returns {{} & {[K in keyof API.Type]: {[ID in K]: {}}}[keyof API.Type]}
- */
-export const inspect = (type) =>
-  /** @type {any} */ ({ [discriminant(type)]: {} })
-
-/**
- * @param {API.Type} type
- */
-export const toString = (type) => discriminant(type)
 
 /**
  * @param {string} message
  * @returns {never}
  */
-const unreachable = (message) => {
+export const unreachable = (message) => {
   throw new Error(message)
 }
 
-export const boolean = {
-  Boolean: {
-    /**
-     * @param {API.Constant} value
-     * @returns {API.Result<boolean, RangeError>}
-     */
-    tryFrom: (value) => {
-      if (typeof value === 'boolean') {
-        return { ok: value }
-      } else {
-        return {
-          error: new TypeError(`Expected boolean, found ${typeof value}`),
-        }
-      }
-    },
-  },
-}
-
-export const string = {
-  String: {
-    /**
-     * @param {API.Constant} value
-     * @returns {API.Result<string, RangeError>}
-     */
-    tryFrom(value) {
-      if (typeof value === 'string') {
-        return { ok: value }
-      } else {
-        return { error: new RangeError(`Expected number, got ${typeof value}`) }
-      }
-    },
-  },
-}
-export const Int32 = {
-  Int32: {
-    /**
-     * @param {API.Constant} value
-     * @returns {API.Result<API.Int32, RangeError>}
-     */
-    tryFrom(value) {
-      if (typeof value === 'number' && Number.isInteger(value)) {
-        return { ok: /** @type {API.Int32} */ (value) }
-      } else {
-        return {
-          error: new RangeError(`Expected Int32 instead, got ${typeof value}`),
-        }
-      }
-    },
-  },
-}
-export const Float32 = {
-  Float32: {
-    /**
-     * @param {API.Constant} value
-     * @returns {API.Result<API.Float32, RangeError>}
-     */
-    tryFrom(value) {
-      if (typeof value === 'number' && Number.isFinite(value)) {
-        return { ok: /** @type {API.Float32} */ (value) }
-      } else {
-        return {
-          error: new RangeError(
-            `Expected Float32 instead, got ${typeof value}`
-          ),
-        }
-      }
-    },
-  },
-}
-export const Int64 = {
-  Int64: {
-    /**
-     * @param {API.Constant} value
-     * @returns {API.Result<API.Int64, RangeError>}
-     */
-    tryFrom(value) {
-      if (typeof value === 'bigint') {
-        return { ok: /** @type {API.Int64} */ (value) }
-      } else {
-        return {
-          error: new RangeError(`Expected Int64 instead, got ${typeof value}`),
-        }
-      }
-    },
-  },
-}
-export const Bytes = {
-  Bytes: {
-    /**
-     * @param {API.Constant} value
-     * @returns {API.Result<Uint8Array, RangeError>}
-     */
-    tryFrom(value) {
-      if (value instanceof Uint8Array) {
-        return { ok: value }
-      } else {
-        return {
-          error: new RangeError(
-            `Expected Uint8Array instead, got ${typeof value}`
-          ),
-        }
-      }
-    },
-  },
-}
-
-export const Link = {
-  Link: {
-    /**
-     * @param {API.Constant} value
-     * @returns {API.Result<API.Link, RangeError>}
-     */
-    tryFrom(value) {
-      if (isLink(value)) {
-        return { ok: /** @type {any} */ (value) }
-      } else {
-        return {
-          error: new RangeError(`Expected Link instead, got ${value}`),
-        }
-      }
-    },
-  },
-}
+export const Unit = /** @type {API.Unit} */ Object.freeze({})
+export const Boolean = /** @type {API.Type<boolean>} */ ({ Boolean: Unit })
+export const Int32 = /** @type {API.Type<API.Int32>} */ ({ Int32: Unit })
+export const Float32 = /** @type {API.Type<API.Float32>} */ ({ Float32: Unit })
+export const Int64 = /** @type {API.Type<API.Int64>} */ ({ Int64: Unit })
+export const String = /** @type {API.Type<string>} */ ({ String: Unit })
+export const Bytes = /** @type {API.Type<API.Bytes>} */ ({ Bytes: Unit })
+export const Link = /** @type {API.Type<API.Link>} */ ({ Link: Unit })

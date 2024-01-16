@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 import * as API from '../../api.js'
 import * as Type from '../../type.js'
 
@@ -31,7 +33,7 @@ export const check = (type, value) => {
   if (isAny(type)) {
     return { ok: {} }
   } else {
-    return Type.check(type, value)
+    return Type.satisfies(type, value)
   }
 }
 

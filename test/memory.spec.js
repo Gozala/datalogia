@@ -17,14 +17,21 @@ export const testDB = {
     const uploadID = DB.string()
     const storeID = DB.string()
 
-    const matches = DB.evaluate(db, {
-      and: [
-        { match: [uploadLink, 'capabilities', uploadID] },
-        { match: [uploadID, 'can', 'upload/add'] },
-        { match: [uploadID, 'with', space] },
-        { match: [storeLink, 'capabilities', storeID] },
-        { match: [storeID, 'can', 'store/add'] },
-        { match: [storeID, 'with', space] },
+    const matches = DB.query(db, {
+      select: {
+        uploadLink,
+        storeLink,
+        space,
+        uploadID,
+        storeID,
+      },
+      where: [
+        DB.match([uploadLink, 'capabilities', uploadID]),
+        DB.match([uploadID, 'can', 'upload/add']),
+        DB.match([uploadID, 'with', space]),
+        DB.match([storeLink, 'capabilities', storeID]),
+        DB.match([storeID, 'can', 'store/add']),
+        DB.match([storeID, 'with', space]),
       ],
     })
 
@@ -32,11 +39,11 @@ export const testDB = {
       [...matches],
       [
         {
-          [uploadLink.$]: 'bafy...upload',
-          [storeLink.$]: 'bafy...store',
-          [space.$]: 'did:key:zAlice',
-          [storeID.$]: 'bafy...store/capabilities/0',
-          [uploadID.$]: 'bafy...upload/capabilities/0',
+          uploadLink: 'bafy...upload',
+          storeLink: 'bafy...store',
+          space: 'did:key:zAlice',
+          storeID: 'bafy...store/capabilities/0',
+          uploadID: 'bafy...upload/capabilities/0',
         },
       ]
     )
@@ -56,18 +63,19 @@ export const testDB = {
 
     const e = DB.string()
 
-    const matches = DB.evaluate(db, {
-      match: [e, 'age', 42],
+    const matches = DB.query(db, {
+      select: { e },
+      where: [DB.match([e, 'age', 42])],
     })
 
     assert.deepEqual(
       [...matches],
       [
         {
-          [e.$]: 'fred',
+          e: 'fred',
         },
         {
-          [e.$]: 'ethel',
+          e: 'ethel',
         },
       ]
     )
@@ -82,21 +90,22 @@ export const testDB = {
     const directorName = DB.string()
     const movieTitle = DB.string()
 
-    const matches = DB.evaluate(db, {
-      and: [
-        { match: [arnold, 'person/name', 'Arnold Schwarzenegger'] },
-        { match: [movie, 'movie/cast', arnold] },
-        { match: [movie, 'movie/director', director] },
-        { match: [director, 'person/name', directorName] },
-        { match: [movie, 'movie/title', movieTitle] },
+    const matches = DB.query(db, {
+      select: {
+        director: directorName,
+        movie: movieTitle,
+      },
+      where: [
+        DB.match([arnold, 'person/name', 'Arnold Schwarzenegger']),
+        DB.match([movie, 'movie/cast', arnold]),
+        DB.match([movie, 'movie/director', director]),
+        DB.match([director, 'person/name', directorName]),
+        DB.match([movie, 'movie/title', movieTitle]),
       ],
     })
 
     assert.deepEqual(
-      [...matches].map((result) => ({
-        director: result[directorName.$],
-        movie: result[movieTitle.$],
-      })),
+      [...matches],
       [
         { director: 'James Cameron', movie: 'The Terminator' },
         { director: 'John McTiernan', movie: 'Predator' },
@@ -115,15 +124,18 @@ export const testDB = {
 
     const id = DB.integer()
     const name = DB.string()
-    const matches = DB.evaluate(db, {
-      and: [
-        { match: [id, 'job', 'Computer programmer'] },
-        { match: [id, 'name', name] },
+    const matches = DB.query(db, {
+      select: {
+        name,
+      },
+      where: [
+        DB.match([id, 'job', 'Computer programmer']),
+        DB.match([id, 'name', name]),
       ],
     })
 
     assert.deepEqual(
-      [...matches].map((e) => ({ name: e[name.$] })),
+      [...matches],
       [{ name: 'Hacker Alyssa P' }, { name: 'Fect Cy D' }]
     )
   },
@@ -135,19 +147,20 @@ export const testDB = {
     const supervisorName = DB.string()
     const employee = DB.integer()
     const employeeName = DB.string()
-    const matches = DB.evaluate(db, {
-      and: [
-        { match: [employee, 'supervisor', supervisor] },
-        { match: [supervisor, 'name', supervisorName] },
-        { match: [employee, 'name', employeeName] },
+    const matches = DB.query(db, {
+      select: {
+        employee: employeeName,
+        supervisor: supervisorName,
+      },
+      where: [
+        DB.match([employee, 'supervisor', supervisor]),
+        DB.match([supervisor, 'name', supervisorName]),
+        DB.match([employee, 'name', employeeName]),
       ],
     })
 
     assert.deepEqual(
-      [...matches].map((e) => ({
-        employee: e[employeeName.$],
-        supervisor: e[supervisorName.$],
-      })),
+      [...matches],
       [
         { employee: 'Hacker Alyssa P', supervisor: 'Bitdiddle Ben' },
         { employee: 'Fect Cy D', supervisor: 'Bitdiddle Ben' },
@@ -170,29 +183,20 @@ export const testDB = {
       salary: DB.integer(),
     }
 
-    const matches = DB.evaluate(db, {
-      and: [
-        { match: [employee.id, 'salary', employee.salary] },
-        {
-          when: DB.when(
-            { salary: employee.salary },
-            {
-              tryFrom: (employee) =>
-                employee.salary > 30_000
-                  ? { ok: {} }
-                  : { error: new RangeError(`${employee.salary} < 30_000`) },
-            }
-          ),
-        },
-        { match: [employee.id, 'name', employee.name] },
+    const matches = DB.query(db, {
+      select: {
+        name: employee.name,
+        salary: employee.salary,
+      },
+      where: [
+        DB.match([employee.id, 'salary', employee.salary]),
+        DB.Constraint.greater(employee.salary, 30_000),
+        DB.match([employee.id, 'name', employee.name]),
       ],
     })
 
     assert.deepEqual(
-      [...matches].map(($) => ({
-        name: $[employee.name.$],
-        salary: $[employee.salary.$],
-      })),
+      [...matches],
       [
         { name: 'Bitdiddle Ben', salary: 60_000 },
         { name: 'Hacker Alyssa P', salary: 40_000 },
@@ -202,40 +206,21 @@ export const testDB = {
       ]
     )
 
-    const matches2 = DB.evaluate(db, {
-      and: [
-        { match: [employee.id, 'salary', employee.salary] },
-        {
-          when: DB.when(
-            { salary: employee.salary },
-            {
-              tryFrom: (employee) =>
-                employee.salary > 30_000
-                  ? { ok: {} }
-                  : { error: new RangeError(`${employee.salary} < 30_000`) },
-            }
-          ),
-        },
-        {
-          when: DB.when(
-            { salary: employee.salary },
-            {
-              tryFrom: (employee) =>
-                employee.salary < 100_000
-                  ? { ok: {} }
-                  : { error: new RangeError(`${employee.salary} > 100_000`) },
-            }
-          ),
-        },
-        { match: [employee.id, 'name', employee.name] },
+    const matches2 = DB.query(db, {
+      select: {
+        name: employee.name,
+        salary: employee.salary,
+      },
+      where: [
+        DB.match([employee.id, 'salary', employee.salary]),
+        employee.salary.confirm((salary) => salary > 30_000),
+        employee.salary.confirm((salary) => salary < 100_000),
+        DB.match([employee.id, 'name', employee.name]),
       ],
     })
 
     assert.deepEqual(
-      [...matches2].map(($) => ({
-        name: $[employee.name.$],
-        salary: $[employee.salary.$],
-      })),
+      [...matches2],
       [
         { name: 'Bitdiddle Ben', salary: 60_000 },
         { name: 'Hacker Alyssa P', salary: 40_000 },
@@ -259,27 +244,26 @@ export const testDB = {
       name: DB.string(),
     }
 
-    const matches = DB.evaluate(db, {
-      and: [
-        { match: [ben, 'name', 'Bitdiddle Ben'] },
-        { match: [alyssa, 'name', 'Hacker Alyssa P'] },
-        {
-          or: [
-            { match: [employee.id, 'supervisor', ben] },
-            { match: [employee.id, 'supervisor', alyssa] },
-          ],
-        },
-        { match: [employee.id, 'name', employee.name] },
-        { match: [employee.id, 'supervisor', supervisor.id] },
-        { match: [supervisor.id, 'name', supervisor.name] },
+    const matches = DB.query(db, {
+      select: {
+        name: employee.name,
+        supervisor: supervisor.name,
+      },
+      where: [
+        DB.match([ben, 'name', 'Bitdiddle Ben']),
+        DB.match([alyssa, 'name', 'Hacker Alyssa P']),
+        DB.or(
+          DB.match([employee.id, 'supervisor', ben]),
+          DB.match([employee.id, 'supervisor', alyssa])
+        ),
+        DB.match([employee.id, 'name', employee.name]),
+        DB.match([employee.id, 'supervisor', supervisor.id]),
+        DB.match([supervisor.id, 'name', supervisor.name]),
       ],
     })
 
     assert.deepEqual(
-      [...matches].map((e) => ({
-        name: e[employee.name.$],
-        supervisor: e[supervisor.name.$],
-      })),
+      [...matches],
       [
         { name: 'Hacker Alyssa P', supervisor: 'Bitdiddle Ben' },
         { name: 'Fect Cy D', supervisor: 'Bitdiddle Ben' },
@@ -308,23 +292,19 @@ export const testDB = {
     }
 
     // finds all people supervised by Ben Bitdiddle who are not computer programmers
-    const matches = DB.evaluate(db, {
-      and: [
-        { match: [ben.id, 'name', ben.name] },
-        { match: [employee.id, 'supervisor', ben.id] },
-        { match: [employee.id, 'name', employee.name] },
-        {
-          not: {
-            match: [employee.id, 'job', 'Computer programmer'],
-          },
-        },
+    const matches = DB.query(db, {
+      select: {
+        name: employee.name,
+      },
+      where: [
+        DB.match([ben.id, 'name', ben.name]),
+        DB.match([employee.id, 'supervisor', ben.id]),
+        DB.match([employee.id, 'name', employee.name]),
+        DB.not(DB.match([employee.id, 'job', job.title])),
       ],
     })
 
-    assert.deepEqual(
-      [...matches].map((e) => ({ name: e[employee.name.$] })),
-      [{ name: 'Tweakit Lem E' }]
-    )
+    assert.deepEqual([...matches], [{ name: 'Tweakit Lem E' }])
   },
 }
 

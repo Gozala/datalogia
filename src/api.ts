@@ -1,16 +1,6 @@
-import { variables } from './clause.js'
-import { VARIABLE_ID } from './variable.js'
 import { ByteView, Link as IPLDLink } from 'multiformats'
 
 export type { ByteView }
-
-export interface Link<
-  Data extends {} | null = {} | null,
-  Format extends number = number,
-  Alg extends number = number,
-> extends IPLDLink<Data, Format, Alg, 1> {
-  ['/']: ByteView<this>
-}
 
 /**
  * Generic reader interface that can be used to read `O` value form the
@@ -96,7 +86,7 @@ interface InferenceError<message> {
   [Marker]: never & message
 }
 
-declare const Marker: unique symbol
+export declare const Marker: unique symbol
 
 /**
  * A utility type to retain an unused type parameter `T`.
@@ -120,26 +110,88 @@ export interface Phantom<T> {
 export type New<T, Type = Tagged<T>> = Tagged<T>[keyof Tagged<T>] &
   Phantom<Type>
 
-export type Int32 = New<{ Int32: number }>
-export type Float32 = New<{ Float32: number }>
-export type Int64 = New<{ Int64: bigint }>
+/**
+ * Type representing a unit value.
+ */
+export interface Unit {}
 
+/**
+ * Signed 32-bit integer type.
+ */
+export type Int32 = New<{ Int32: number }>
+/**
+ * Signed 64-bit integer type.
+ */
+export type Int64 = New<{ Int64: bigint }>
+/**
+ * 32-bit floating point number type.
+ */
+export type Float32 = New<{ Float32: number }>
+
+/**
+ * Type representing a raw bytes.
+ */
 export type Bytes = Uint8Array
+
+/**
+ * Type representing an IPLD link.
+ */
+export interface Link<
+  Data extends {} | null = {} | null,
+  Format extends number = number,
+  Alg extends number = number,
+> {
+  ['/']: ByteView<this>
+}
+
+/**
+ * All the constants in the system represented as a union of the following types.
+ *
+ * We are likely to introduce uint32, int8, uint8 and etc but for now we have
+ * chosen to keep things simple.
+ */
 export type Constant = boolean | Int32 | Float32 | Int64 | string | Bytes | Link
 
 /**
- * Variable is placeholder for a value that will be matched against by the
- * query engine. It is represented as an abstract `Reader` that will attempt
- * to read arbitrary {@type Data} and return result with either `ok` of the
- * `Type` or an `error`.
- *
- * Variables will be assigned unique `bindingKey` by a query engine that will
- * be used as unique identifier for the variable.
+ * Supported primitive types. Definition utilizes `Phantom` type to describe
+ * the type for compile type inference and `Variant` type to describe it for
+ * the runtime inference.
  */
-export interface Variable<T extends Constant = Constant>
-  extends TryFrom<{ Self: T; Input: Constant }> {
-  type: RowType
-  [VARIABLE_ID]?: VariableID
+export type Type<T extends Constant = Constant> = Phantom<T> &
+  Variant<{
+    Boolean: Unit
+    Int32: Unit
+    Int64: Unit
+    Float32: Unit
+    String: Unit
+    Bytes: Unit
+    Link: Unit
+  }>
+
+// /**
+//  * Variable is placeholder for a value that will be matched against by the
+//  * query engine. It is represented as an abstract `Reader` that will attempt
+//  * to read arbitrary {@type Data} and return result with either `ok` of the
+//  * `Type` or an `error`.
+//  *
+//  * Variables will be assigned unique `bindingKey` by a query engine that will
+//  * be used as unique identifier for the variable.
+//  */
+// export interface Variable<T extends Constant = Constant>
+//   extends TryFrom<{ Self: T; Input: Constant }> {
+//   type: RowType
+//   [VARIABLE_ID]?: VariableID
+// }
+
+/**
+ * Variable is placeholder for a value that will be matched against by the
+ * query engine.
+ */
+export interface Variable<T extends Constant = Constant> {
+  ['?']: {
+    type?: Type<T>
+    id: VariableID
+  }
 }
 
 export type VariableID = number
@@ -167,7 +219,7 @@ export type VariableVariant = Variant<{
  * all facts in the database and unify {@link Variable}s across them to identify
  * all possible solutions.
  */
-export type Pattern = [
+export type Pattern = readonly [
   entity: Term<Entity>,
   attribute: Term<Attribute>,
   value: Term<Constant>,
@@ -175,18 +227,17 @@ export type Pattern = [
 
 export type Clause = Variant<{
   // and clause
-  and: Clause[]
+  And: Clause[]
   // or clause
-  or: Clause[]
+  Or: Clause[]
   // negation
-  not: Clause
-  // expression clause
-  // pattern match
-  match: Pattern
-  // predicate
-  when: When
+  Not: Clause
+  // pattern match a fact
+  Case: Pattern
+  // match aggregated bindings
+  Form: MatchForm
   // rule application
-  apply: ApplyRule
+  Rule: MatchRule
 }>
 
 export type Frame = Record<PropertyKey, Term>
@@ -336,19 +387,19 @@ export type Version = Variant<{
 
 export type Rule = DeductiveRule | InductiveRule
 
-export interface ApplyRule {
-  input: Frame
+export interface MatchRule {
+  input: Selector
   rule: Rule
 }
 
 export interface DeductiveRule {
-  match: Variables
+  match: Selector
   // where: RulePredicate[]
   where: Clause
 }
 
 export interface InductiveRule {
-  match: Variables
+  match: Selector
   // where: RulePredicate[]
   where: Clause
 }
@@ -422,8 +473,13 @@ export interface Not {
 
 export type Combinator = Variant<{}>
 
-export interface When<Input extends Variables = Variables> {
-  match(input: InferBindings<Input>): Result<{}, Error>
+export type Confirmation = Variant<{
+  ok: Unit
+  error: Error
+}>
+
+export interface MatchForm {
+  confirm(bindings: Bindings): Confirmation
 }
 
 /**
@@ -494,16 +550,6 @@ export interface Row<Type extends RowType = RowType> {
 }
 
 export type RowTerm<T extends Constant = Constant> = T | Variable<T>
-
-export type Type = Variant<{
-  Boolean: TryFrom<{ Self: boolean; Input: Constant }>
-  Int32: TryFrom<{ Self: Int32; Input: Constant }>
-  Int64: TryFrom<{ Self: Int64; Input: Constant }>
-  Float32: TryFrom<{ Self: Float32; Input: Constant }>
-  String: TryFrom<{ Self: string; Input: Constant }>
-  Bytes: TryFrom<{ Self: Uint8Array; Input: Constant }>
-  Link: TryFrom<{ Self: Link; Input: Constant }>
-}>
 
 export type RowType = Variant<{
   Any: TryFrom<{ Self: Constant; Input: Constant }>

@@ -10,8 +10,8 @@ const testDB = DB.Memory.create(microshaft)
 export const testMore = {
   'test facts': (assert) => {
     const Employee = DB.entity({
-      name: DB.string(),
-      job: DB.string(),
+      name: DB.string,
+      job: DB.string,
     })
 
     const employee = new Employee()
@@ -48,14 +48,14 @@ export const testMore = {
   },
   'test supervisor': (assert) => {
     const Supervisor = DB.entity({
-      name: DB.string(),
-      salary: DB.integer(),
+      name: DB.string,
+      salary: DB.integer,
     })
 
     const Employee = DB.entity({
-      name: DB.string(),
-      salary: DB.integer(),
-      supervisor: new Supervisor(),
+      name: DB.string,
+      salary: DB.integer,
+      supervisor: Supervisor,
     })
 
     const employee = new Employee()
@@ -82,8 +82,8 @@ export const testMore = {
   },
   'test salary': (assert) => {
     const Employee = DB.entity({
-      name: DB.string(),
-      salary: DB.integer(),
+      name: DB.string,
+      salary: DB.integer,
     })
 
     const employee = new Employee()
@@ -93,7 +93,7 @@ export const testMore = {
         name: employee.name,
         salary: employee.salary,
       },
-      where: [employee.salary.greaterThan(30_000)],
+      where: [employee.salary.greater(30_000)],
     }
 
     const result = DB.query(testDB, query)
@@ -111,10 +111,7 @@ export const testMore = {
           name: employee.name,
           salary: employee.salary,
         },
-        where: [
-          employee.salary.greaterThan(30_000),
-          employee.salary.lessThan(100_000),
-        ],
+        where: [employee.salary.greater(30_000), employee.salary.less(100_000)],
       }),
       [
         { name: 'Bitdiddle Ben', salary: 60_000 },
@@ -126,8 +123,8 @@ export const testMore = {
   },
   'test address': (assert) => {
     const Employee = DB.entity({
-      name: DB.string(),
-      address: DB.string(),
+      name: DB.string,
+      address: DB.string,
     })
 
     const employee = new Employee()
@@ -137,7 +134,9 @@ export const testMore = {
         name: employee.name,
         address: employee.address,
       },
-      where: [employee.address.toLowerCase().includes('campridge')],
+      where: [
+        employee.address.confirm((address) => address.includes('Campridge')),
+      ],
     }
 
     assert.deepEqual(DB.query(testDB, whoLivesInCambridge), [
@@ -147,9 +146,9 @@ export const testMore = {
   },
   'test employee with non comp supervisor ': (assert) => {
     const Employee = DB.entity({
-      name: DB.string(),
-      supervisor: DB.string(),
-      job: DB.string(),
+      name: DB.string,
+      supervisor: DB.string,
+      job: DB.string,
     })
 
     const employee = new Employee()
@@ -164,7 +163,7 @@ export const testMore = {
         where: [
           employee.job.startsWith('Computer'),
           employee.supervisor.is(supervisor),
-          supervisor.job.doesNotStartsWith('Computer'),
+          DB.not(supervisor.job.startsWith('Computer')),
         ],
       }),
       [

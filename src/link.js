@@ -25,25 +25,21 @@ export const equal = (self, other) => Bytes.equal(self['/'], other['/'])
  * @param {API.Link} self
  * @returns {JSON}
  */
-export const toJSON = (self) => ({ '/': Link.format(self) })
+export const toJSON = (self) => ({
+  '/': Link.format(/** @type {any} */ (self)),
+})
 
 /**
  * @param {JSON} json
  * @returns {API.Link}
  */
-export const fromJSON = (json) =>
-  /** @type {API.Link} */ (Link.parse(json['/']))
+export const fromJSON = (json) => /** @type {any} */ (Link.parse(json['/']))
 
 /**
  * @param {API.Link} self
  */
-export const toString = (self) => `{"/":"${Link.format(self)}"}`
-
-/**
- * @param {string} input
- * @returns {API.Link}
- */
-export const fromString = (input) => /** @type {API.Link} */ (Link.parse(input))
+export const toString = (self) =>
+  `{"/":"${Link.format(/** @type {any} */ (self))}"}`
 
 /**
  * @template {API.Link} Link
@@ -56,16 +52,17 @@ export const toBytes = (self) => self['/']
  * @param {Uint8Array} bytes
  * @returns {API.Link}
  */
-export const fromBytes = (bytes) => /** @type {API.Link} */ (Link.decode(bytes))
+export const fromBytes = (bytes) => /** @type {any} */ (Link.decode(bytes))
 
 /**
  * @template {{}|null} Value
  * @param {Value} value
+ * @returns {API.Link<Value, typeof CBOR.code, 0x1e>}
  */
 export const of = (value) => {
   const bytes = CBOR.encode(value)
   const digest = Blake3.blake3(bytes)
-  return /** @type {API.Link<Value, typeof CBOR.code, 0x1e>} */ (
+  return /** @type {any} */ (
     Link.create(CBOR.code, Digest.create(0x1e, digest))
   )
 }

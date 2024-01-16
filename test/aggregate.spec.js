@@ -23,7 +23,7 @@ export const testAggregate = {
 
     const Follower = rule({
       match: { follower: follower, follows: follows },
-      where: [{ match: [follower, 'follows', follows] }],
+      where: [{ Case: [follower, 'follows', follows] }],
     })
 
     const id = DB.integer()
@@ -32,22 +32,11 @@ export const testAggregate = {
     const popularProfile = rule({
       match: { id },
       where: [
-        { match: [id, 'profile', DB._] },
+        DB.match([id, 'profile', DB._]),
         Follower.match({ follower: profile, follows: id }),
         // @ts-expect-error - we do not yet have aggregators
         same.match({ operand: c, modifier: count.of(profile) }),
-        {
-          when: DB.when(
-            { n: c },
-            {
-              tryFrom({ n }) {
-                return n > 3
-                  ? { ok: true }
-                  : { error: new Error('not popular') }
-              },
-            }
-          ),
-        },
+        c.confirm((c) => c > 3),
       ],
     })
   },

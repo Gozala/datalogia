@@ -15,7 +15,7 @@ import * as Schema from './dsl.js'
 export const rule = ({ match, where = [] }) =>
   new Rule({
     match,
-    where: { and: where },
+    where: { And: where },
   })
 
 /**
@@ -28,7 +28,7 @@ export const rule = ({ match, where = [] }) =>
 const build = ({ match, where = [] }) => {
   const builder = new RuleBodyBuilder()
 
-  for (const variable of Clause.variables({ and: where })) {
+  for (const variable of Clause.variables({ And: where })) {
   }
 
   builder.search('self', match)
@@ -49,11 +49,11 @@ class Rule {
   /**
    *
    * @param {{[K in keyof Match]: Match[K] extends API.Variable<infer T> ? API.Term<T> : Match[K]}} input
-   * @returns {{apply: API.ApplyRule}}
+   * @returns {API.Clause}
    */
   match(input) {
     return {
-      apply: { input, rule: this.source },
+      Rule: { input, rule: this.source },
     }
   }
 }
@@ -135,7 +135,7 @@ class RelationsBuilder {
     if (this.link) {
       if (Variable.is(this.link)) {
         Object.assign(this.bindings, {
-          [Variable.key(this.link)]: Schema.link(),
+          [Variable.toKey(this.link)]: Schema.link(),
         })
       }
     }
@@ -143,7 +143,7 @@ class RelationsBuilder {
     for (const [key, value] of Object.entries(this.bindings)) {
       if (Variable.is(value)) {
         Object.assign(this.bindings, {
-          [Variable.key(value)]: Schema.link(),
+          [Variable.toKey(value)]: Schema.link(),
         })
       }
     }
@@ -214,15 +214,16 @@ class HeadBuilder {
       }
 
       if (Variable.is(term)) {
-        const type = variables[Variable.key(term)]
+        const type = variables[Variable.toKey(term)]
         if (type) {
           const result = Row.Type.unify(type, row.type)
           const result2 = result.ok
-            ? Row.Type.unify(result.ok, Variable.type(term))
+            ? // @ts-expect-error - TODO: Fix this
+              Row.Type.unify(result.ok, Variable.toType(term))
             : result
         } else {
           throw new RangeError(
-            `Clause not range restricted ${rowID} ${Variable.key(
+            `Clause not range restricted ${rowID} ${Variable.toKey(
               term
             ).toString()}`
           )

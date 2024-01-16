@@ -40,7 +40,7 @@ const formatKey = (key) => {
     return `/${key.Link.alias ?? ''}@${key.Link.id}`
   } else {
     return `*${key.Aggregate.alias ?? ''}@${key.Aggregate.id}${String(
-      Variable.key(key.Aggregate.variable)
+      Variable.toKey(key.Aggregate.variable)
     )}`
   }
 }
@@ -70,7 +70,7 @@ export const get = (bindings, term) => {
   // If term is a variable we attempt to resolve the value bound to it.
   // If the variable is unbound we return a range error.
   if (Variable.is(term)) {
-    const key = Variable.key(term)
+    const key = Variable.toKey(term)
     if (key in bindings) {
       return /** @type {T|undefined} */ (bindings[key])
     } else {

@@ -8,41 +8,6 @@ import { rule } from '../src/rule.js'
  * @type {import('entail').Suite}
  */
 export const testRules = {
-  // 'test lives near': async (assert) => {
-  //   const db = DB.Memory.create(employeeDB)
-  //   const employee = {
-  //     id: DB.Schema.number(),
-  //     address: DB.Schema.string(),
-  //   }
-  //   const coworker = {
-  //     id: DB.Schema.number(),
-  //     address: DB.Schema.string(),
-  //   }
-
-  //   const id = DB.Schema.number()
-  //   const same = rule({
-  //     match: {
-  //       left: id,
-  //       right: id,
-  //     },
-  //     where: [],
-  //   })
-
-  //   const livesNear = rule({
-  //     match: {
-  //       employee: employee.id,
-  //       coworker: coworker.id,
-  //     },
-  //     where: [
-  //       { match: [employee.id, 'address', employee.address] },
-  //       { match: [coworker.id, 'address', coworker.address] },
-  //       { not: {
-  //          'match'
-  //           same({ left: employee.id, right: coworker.id }) },
-  //     ],
-  //   })
-  // },
-
   'test wheel rule': async (assert) => {
     const db = DB.Memory.create(employeeDB)
 
@@ -52,27 +17,23 @@ export const testRules = {
     const wheel = rule({
       match: { person },
       where: [
-        { match: [manager, 'supervisor', person] },
-        { match: [employee, 'supervisor', manager] },
+        { Case: [manager, 'supervisor', person] },
+        { Case: [employee, 'supervisor', manager] },
       ],
     })
 
     const who = DB.integer()
     const name = DB.string()
 
-    const matches = DB.evaluate(db, {
-      and: [
-        wheel.match({ person: who }),
-        {
-          match: [who, 'name', name],
-        },
-      ],
+    const matches = DB.query(db, {
+      select: {
+        name: name,
+      },
+      where: [wheel.match({ person: who }), DB.match([who, 'name', name])],
     })
 
     assert.deepEqual(
-      [...matches].map(($) => ({
-        name: $[name.$],
-      })),
+      [...matches],
       [
         { name: 'Bitdiddle Ben' },
         { name: 'Warbucks Oliver' },
@@ -111,52 +72,36 @@ export const testRules = {
         coworker: coworker.id,
       },
       where: [
-        { match: [employee.id, 'address', employee.address] },
-        { match: [coworker.id, 'address', coworker.address] },
-        {
-          when: DB.when(
-            {
-              employee: employee.address,
-              coworker: coworker.address,
-            },
-            {
-              tryFrom: ({ employee, coworker }) => {
-                return employee.split(' ')[0] === coworker.split(' ')[0]
-                  ? { ok: {} }
-                  : { error: new Error() }
-              },
-            }
-          ),
-        },
-        {
-          not: same.match({
-            operand: employee.id,
-            modifier: coworker.id,
-          }),
-        },
+        DB.match([employee.id, 'address', employee.address]),
+        DB.match([coworker.id, 'address', coworker.address]),
+        DB.select({
+          employee: employee.address,
+          coworker: coworker.address,
+        }).where(
+          ({ employee, coworker }) =>
+            employee.split(' ')[0] === coworker.split(' ')[0]
+        ),
+        DB.not(same.match({ operand: employee.id, modifier: coworker.id })),
       ],
     })
 
-    const matches = DB.evaluate(db, {
-      and: [
+    const matches = DB.query(db, {
+      select: {
+        employee: employee.name,
+        coworker: coworker.name,
+      },
+      where: [
         livesNear.match({
           employee: employee.id,
           coworker: coworker.id,
         }),
-        {
-          match: [employee.id, 'name', employee.name],
-        },
-        {
-          match: [coworker.id, 'name', coworker.name],
-        },
+        DB.match([employee.id, 'name', employee.name]),
+        DB.match([coworker.id, 'name', coworker.name]),
       ],
     })
 
     assert.deepEqual(
-      [...matches].map(($) => ({
-        employee: $[employee.name.$],
-        coworker: $[coworker.name.$],
-      })),
+      [...matches],
       [
         { employee: 'Bitdiddle Ben', coworker: 'Aull DeWitt' },
         { employee: 'Hacker Alyssa P', coworker: 'Fect Cy D' },
