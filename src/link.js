@@ -66,3 +66,10 @@ export const of = (value) => {
     Link.create(CBOR.code, Digest.create(0x1e, digest))
   )
 }
+
+/**
+ * @param {API.Link} self
+ * @param {API.Link} other
+ */
+export const compare = (self, other) =>
+  self.toString().localeCompare(other.toString())

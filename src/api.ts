@@ -242,7 +242,7 @@ export type Clause = Variant<{
 
 export type Frame = Record<PropertyKey, Term>
 
-export type Entity = string | Float32 | Int32 | Int64 | Bytes
+export type Entity = string | Float32 | Int32 | Int64 | Link
 export type Attribute = string | Float32 | Int32 | Int64 | Bytes
 
 /**
@@ -261,6 +261,25 @@ export type Fact = readonly [
   value: Constant,
 ]
 
+/**
+ * Set of {@link Fact}s associating several attributes with the same new entity.
+ * Each key represents an `attribute` and corresponding value represents it's
+ * `value`.
+ *
+ * If value is an array of {@link Constant}s then entity is associated each
+ * value with a same attribute.
+ *
+ * If value is an `Instantiation` then entity is associated with a new entity
+ * that is described by that `Instantiation`.
+ *
+ * If value is an array of `Instantiation`s then entity is associated with a
+ * each `Instantiation` in the array with an attribute corresponding to the
+ * key.
+ */
+export interface Instantiation {
+  [Key: string]: Constant | Constant[] | Instantiation | Instantiation[]
+}
+
 export interface FactsSelector {
   entity?: Entity
   attribute?: Attribute
@@ -268,7 +287,8 @@ export interface FactsSelector {
 }
 
 export type Instruction = Variant<{
-  assert: Fact
+  Associate: Fact
+  Add: Instantiation
 }>
 
 export interface Transaction extends Iterable<Instruction> {}

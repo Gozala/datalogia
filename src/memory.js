@@ -1,4 +1,5 @@
 import * as API from './api.js'
+import { Constant } from './lib.js'
 import * as Link from './link.js'
 
 /**
@@ -9,7 +10,7 @@ import * as Link from './link.js'
 export const create = ({ facts } = { facts: [] }) => {
   const memory = new Memory()
   for (const fact of facts) {
-    assert(memory, fact)
+    associate(memory, fact)
   }
 
   return memory
@@ -28,31 +29,40 @@ export const toKey = ([entity, attribute, value]) =>
  * @returns {API.Result<{}, Error>}
  */
 export const transact = (model, transaction) => {
-  for (const { assert: fact } of transaction) {
-    assert(model, fact)
+  for (const instruction of transaction) {
+    if (instruction.Associate) {
+      associate(model, instruction.Associate)
+    } else if (instruction.Add) {
+      add(model, instruction.Add)
+    }
   }
 
   return { ok: model.data }
 }
 
 /**
- * @typedef {{data: Record<string, API.Fact[]>}} Model
+ * @typedef {object} Model
+ * @property {Record<string, API.Fact>} data
+ * @property {Record<string, API.Fact[]>} index
+ *
  *
  * @param {Model} data
  * @param {API.Fact} fact
  */
-export const assert = ({ data }, fact) => {
+export const associate = ({ data, index }, fact) => {
   const [entity, attribute, value] = fact
   // derive the fact identifier from the fact data
-  const id = toKey([entity, attribute, value]).toString()
+  const key = toKey([entity, attribute, value])
+  const id = key.toString()
 
   // If the fact is not yet known we need to store it and index it.
   if (!(id in data)) {
-    data[id] = [fact]
+    data[id] = fact
 
     // We also index new fact by each of its components so that we can
     // efficiently query by entity, attribute or value.
     const keys = [
+      key,
       // by entity
       toKey([entity, null, null]),
       toKey([entity, attribute, null]),
@@ -68,27 +78,93 @@ export const assert = ({ data }, fact) => {
       const id = key.toString()
       // If we already have some facts in this index we add a new fact,
       // otherwise we create a new index.
-      const index = data[id]
-      if (index) {
-        index.push(fact)
+      const facts = index[id]
+      if (facts) {
+        facts.push(fact)
       } else {
-        data[id] = [fact]
+        index[id] = [fact]
       }
     }
   }
+
+  return key
+}
+
+/**
+ * @param {Model} model
+ * @param {API.Instantiation} association
+ */
+export const add = (model, association) => {
+  /** @type {Record<string, API.Constant|API.Constant[]>} */
+  const entity = {}
+  /** @type {Array<[API.Attribute, API.Constant]>} */
+  const attributes = []
+  for (const [key, value] of Object.entries(association)) {
+    switch (typeof value) {
+      case 'boolean':
+      case 'number':
+      case 'bigint':
+      case 'string':
+        entity[key] = value
+        attributes.push([key, value])
+        break
+      case 'object': {
+        if (Constant.is(value)) {
+          entity[key] = value
+          attributes.push([key, value])
+        } else if (Array.isArray(value)) {
+          const values = []
+          for (const member of value) {
+            if (Constant.is(member)) {
+              attributes.push([key, member])
+              values.push(member)
+            } else {
+              const entity = add(model, member)
+              attributes.push([key, entity])
+              values.push(entity)
+            }
+            entity[key] = values.sort(Constant.compare)
+          }
+        } else {
+          const link = add(model, value)
+          entity[key] = link
+          attributes.push([key, link])
+        }
+        break
+      }
+      default:
+        throw new TypeError(`Unsupported value type: ${value}`)
+    }
+  }
+
+  const link = Link.of(entity)
+  for (const [attribute, value] of attributes) {
+    associate(model, [link, attribute, value])
+  }
+
+  return link
 }
 
 class Memory {
   constructor() {
-    /** @type {Record<string, API.Fact[]>} */
-    this.data = Object.create(null)
+    /** @type {Model} */
+    this.model = {
+      data: Object.create(null),
+      index: Object.create(null),
+    }
+  }
+  get index() {
+    return this.model.index
+  }
+  get data() {
+    return this.model.data
   }
 
   /**
    * @param {API.Transaction} transaction
    */
   async transact(transaction) {
-    return transact(this, transaction)
+    return transact(this.model, transaction)
   }
 
   /**
@@ -96,6 +172,6 @@ class Memory {
    */
   facts({ entity, attribute, value }) {
     const key = toKey([entity ?? null, attribute ?? null, value ?? null])
-    return this.data[key.toString()] ?? []
+    return this.model.index[key.toString()] ?? []
   }
 }
