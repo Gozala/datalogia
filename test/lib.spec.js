@@ -1,18 +1,21 @@
 import * as DB from 'datalogia'
-import * as proofsDB from './proof-facts.js'
-import * as moviesDB from './movie-facts.js'
+import * as proofs from './proof-facts.js'
+import * as movies from './movie-facts.js'
+
+const proofsDB = DB.Memory.create(proofs)
+const moviesDB = DB.Memory.create(movies)
 
 /**
  * @type {import('entail').Suite}
  */
 export const testDB = {
   'test capabilities across ucans': async (assert) => {
-    const uploadLink = DB.Schema.string()
-    const storeLink = DB.Schema.string()
+    const uploadLink = DB.string()
+    const storeLink = DB.string()
 
-    const space = DB.Schema.string()
-    const uploadID = DB.Schema.string()
-    const storeID = DB.Schema.string()
+    const space = DB.string()
+    const uploadID = DB.string()
+    const storeID = DB.string()
 
     const result = DB.query(proofsDB, {
       select: {
@@ -21,12 +24,12 @@ export const testDB = {
         space,
       },
       where: [
-        [uploadLink, 'capabilities', uploadID],
-        [uploadID, 'can', 'upload/add'],
-        [uploadID, 'with', space],
-        [storeLink, 'capabilities', storeID],
-        [storeID, 'can', 'store/add'],
-        [storeID, 'with', space],
+        DB.match([uploadLink, 'capabilities', uploadID]),
+        DB.match([uploadID, 'can', 'upload/add']),
+        DB.match([uploadID, 'with', space]),
+        DB.match([storeLink, 'capabilities', storeID]),
+        DB.match([storeID, 'can', 'store/add']),
+        DB.match([storeID, 'with', space]),
       ],
     })
 
@@ -38,83 +41,53 @@ export const testDB = {
       },
     ])
   },
-  'test query builder': async (assert) => {
-    const query = DB.select({
-      uploadLink: DB.Schema.string(),
-      storeLink: DB.Schema.string(),
-    }).where(({ uploadLink, storeLink }) => {
-      const space = DB.Schema.string()
-      const uploadID = DB.Schema.string()
-      const storeID = DB.Schema.string()
-
-      return [
-        [uploadLink, 'capabilities', uploadID],
-        [uploadID, 'can', 'upload/add'],
-        [uploadID, 'with', space],
-        [storeLink, 'capabilities', storeID],
-        [storeID, 'can', 'store/add'],
-        [storeID, 'with', space],
-      ]
-    })
-
-    assert.deepEqual(query.execute(proofsDB), [
-      {
-        uploadLink: 'bafy...upload',
-        storeLink: 'bafy...store',
-      },
-    ])
-  },
 
   'test baisc': async (assert) => {
+    /** @type {DB.Fact[]} */
     const facts = [
-      DB.assert('sally', 'age', 21),
-      DB.assert('fred', 'age', 42),
-      DB.assert('ethel', 'age', 42),
-      DB.assert('fred', 'likes', 'pizza'),
-      DB.assert('sally', 'likes', 'opera'),
-      DB.assert('ethel', 'likes', 'sushi'),
+      ['sally', 'age', 21],
+      ['fred', 'age', 42],
+      ['ethel', 'age', 42],
+      ['fred', 'likes', 'pizza'],
+      ['sally', 'likes', 'opera'],
+      ['ethel', 'likes', 'sushi'],
     ]
+    const db = DB.Memory.create({ facts })
 
-    const e = DB.Schema.string()
+    const e = DB.string()
 
     assert.deepEqual(
-      DB.query(
-        { facts },
-        {
-          select: { e },
-          where: [[e, 'age', 42]],
-        }
-      ),
+      DB.query(db, {
+        select: { e },
+        where: [DB.match([e, 'age', 42])],
+      }),
       [{ e: 'fred' }, { e: 'ethel' }]
     )
 
-    const x = DB.Schema.string()
+    const x = DB.string()
     assert.deepEqual(
-      DB.query(
-        { facts },
-        {
-          select: { x },
-          where: [[DB.Schema._, 'likes', x]],
-        }
-      ),
+      DB.query(db, {
+        select: { x },
+        where: [DB.match([DB._, 'likes', x])],
+      }),
       [{ x: 'pizza' }, { x: 'opera' }, { x: 'sushi' }]
     )
   },
 
   'sketch pull pattern': (assert) => {
-    const director = DB.entity({
-      'person/name': DB.Schema.string(),
+    const Person = DB.entity({
+      'person/name': DB.string,
     })
 
-    const actor = DB.entity({
-      'person/name': DB.Schema.string(),
+    const Movie = DB.entity({
+      'movie/title': DB.string,
+      'movie/director': Person,
+      'movie/cast': Person,
     })
 
-    const movie = DB.entity({
-      'movie/title': DB.Schema.string(),
-      'movie/director': director,
-      'movie/cast': actor,
-    })
+    const movie = new Movie()
+    const director = new Person()
+    const actor = new Person()
 
     assert.deepEqual(
       DB.query(moviesDB, {
@@ -123,8 +96,9 @@ export const testDB = {
           movie: movie['movie/title'],
         },
         where: [
-          actor.match({ 'person/name': 'Arnold Schwarzenegger' }),
-          movie.match({ 'movie/cast': actor }),
+          movie['movie/cast'].is(actor),
+          movie['movie/director'].is(director),
+          actor['person/name'].is('Arnold Schwarzenegger'),
         ],
       }),
       [
@@ -132,6 +106,29 @@ export const testDB = {
         { director: 'John McTiernan', movie: 'Predator' },
         { director: 'Mark L. Lester', movie: 'Commando' },
         { director: 'James Cameron', movie: 'Terminator 2: Judgment Day' },
+        {
+          director: 'Jonathan Mostow',
+          movie: 'Terminator 3: Rise of the Machines',
+        },
+      ]
+    )
+
+    assert.deepEqual(
+      DB.query(moviesDB, {
+        select: {
+          director: director['person/name'],
+          movie: movie['movie/title'],
+        },
+        where: [
+          actor['person/name'].is('Arnold Schwarzenegger'),
+          director['person/name'].not('James Cameron'),
+          movie['movie/cast'].is(actor),
+          movie['movie/director'].is(director),
+        ],
+      }),
+      [
+        { director: 'John McTiernan', movie: 'Predator' },
+        { director: 'Mark L. Lester', movie: 'Commando' },
         {
           director: 'Jonathan Mostow',
           movie: 'Terminator 3: Rise of the Machines',

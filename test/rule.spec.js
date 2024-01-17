@@ -1,0 +1,113 @@
+import * as DB from 'datalogia'
+import * as proofsDB from './proof-facts.js'
+import * as moviesDB from './movie-facts.js'
+import * as employeeDB from './microshaft-facts.js'
+import { rule } from '../src/rule.js'
+
+/**
+ * @type {import('entail').Suite}
+ */
+export const testRules = {
+  'test wheel rule': async (assert) => {
+    const db = DB.Memory.create(employeeDB)
+
+    const person = DB.integer()
+    const manager = DB.integer()
+    const employee = DB.integer()
+    const wheel = rule({
+      match: { person },
+      where: [
+        { Case: [manager, 'supervisor', person] },
+        { Case: [employee, 'supervisor', manager] },
+      ],
+    })
+
+    const who = DB.integer()
+    const name = DB.string()
+
+    const matches = DB.query(db, {
+      select: {
+        name: name,
+      },
+      where: [wheel.match({ person: who }), DB.match([who, 'name', name])],
+    })
+
+    assert.deepEqual(
+      [...matches],
+      [
+        { name: 'Bitdiddle Ben' },
+        { name: 'Warbucks Oliver' },
+        { name: 'Warbucks Oliver' },
+        { name: 'Warbucks Oliver' },
+        { name: 'Warbucks Oliver' },
+      ]
+    )
+  },
+
+  'leaves near': async (assert) => {
+    const db = DB.Memory.create(employeeDB)
+    const employee = {
+      id: DB.integer(),
+      name: DB.string(),
+      address: DB.string(),
+    }
+
+    const coworker = {
+      id: DB.integer(),
+      name: DB.string(),
+      address: DB.string(),
+    }
+
+    const operand = DB.integer()
+    const same = rule({
+      match: {
+        operand,
+        modifier: operand,
+      },
+    })
+
+    const livesNear = rule({
+      match: {
+        employee: employee.id,
+        coworker: coworker.id,
+      },
+      where: [
+        DB.match([employee.id, 'address', employee.address]),
+        DB.match([coworker.id, 'address', coworker.address]),
+        DB.select({
+          employee: employee.address,
+          coworker: coworker.address,
+        }).where(
+          ({ employee, coworker }) =>
+            employee.split(' ')[0] === coworker.split(' ')[0]
+        ),
+        DB.not(same.match({ operand: employee.id, modifier: coworker.id })),
+      ],
+    })
+
+    const matches = DB.query(db, {
+      select: {
+        employee: employee.name,
+        coworker: coworker.name,
+      },
+      where: [
+        livesNear.match({
+          employee: employee.id,
+          coworker: coworker.id,
+        }),
+        DB.match([employee.id, 'name', employee.name]),
+        DB.match([coworker.id, 'name', coworker.name]),
+      ],
+    })
+
+    assert.deepEqual(
+      [...matches],
+      [
+        { employee: 'Bitdiddle Ben', coworker: 'Aull DeWitt' },
+        { employee: 'Hacker Alyssa P', coworker: 'Fect Cy D' },
+        { employee: 'Fect Cy D', coworker: 'Hacker Alyssa P' },
+        { employee: 'Aull DeWitt', coworker: 'Bitdiddle Ben' },
+      ]
+    )
+  },
+}
