@@ -1,7 +1,7 @@
 import * as DB from 'datalogia'
-import * as proofsDB from './proof-facts.js'
-import * as moviesDB from './movie-facts.js'
-import * as employeeDB from './microshaft-facts.js'
+import * as proofsDB from './proofs.db.js'
+import * as moviesDB from './movie.db.js'
+import * as employeeDB from './microshaft.db.js'
 import { rule } from '../src/rule.js'
 import { count } from '../src/aggregate.js'
 
@@ -10,10 +10,10 @@ import { count } from '../src/aggregate.js'
  */
 export const testAggregate = {
   'skip popularProfile': async (assert) => {
-    const follower = DB.integer()
-    const follows = DB.integer()
+    const follower = DB.link()
+    const follows = DB.link()
 
-    const operand = DB.integer()
+    const operand = DB.link()
     const same = rule({
       match: {
         operand,
@@ -26,8 +26,8 @@ export const testAggregate = {
       where: [{ Case: [follower, 'follows', follows] }],
     })
 
-    const id = DB.integer()
-    const profile = DB.integer()
+    const id = DB.link()
+    const profile = DB.link()
     const c = DB.integer()
     const popularProfile = rule({
       match: { id },

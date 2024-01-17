@@ -1,8 +1,61 @@
 import * as API from './api.js'
-import * as Blake3 from '@noble/hashes/blake3'
-import * as CBOR from '@ipld/dag-cbor'
-import * as Digest from 'multiformats/hashes/digest'
-import * as Link from 'multiformats/link'
+import * as Constant from './constant.js'
+import * as Link from './link.js'
+
+/**
+ * @param {API.Instantiation} source
+ * @returns {Generator<API.Fact, API.Entity>}
+ */
+export const derive = function* (source) {
+  /** @type {Record<string, API.Constant|API.Constant[]>} */
+  const entity = {}
+  /** @type {Array<[API.Attribute, API.Constant]>} */
+  const attributes = []
+  for (const [key, value] of Object.entries(source)) {
+    switch (typeof value) {
+      case 'boolean':
+      case 'number':
+      case 'bigint':
+      case 'string':
+        entity[key] = value
+        attributes.push([key, value])
+        break
+      case 'object': {
+        if (Constant.is(value)) {
+          entity[key] = value
+          attributes.push([key, value])
+        } else if (Array.isArray(value)) {
+          const values = []
+          for (const member of value) {
+            if (Constant.is(member)) {
+              attributes.push([key, member])
+              values.push(member)
+            } else {
+              const entity = yield* derive(member)
+              attributes.push([key, entity])
+              values.push(entity)
+            }
+            entity[key] = values.sort(Constant.compare)
+          }
+        } else {
+          const link = yield* derive(value)
+          entity[key] = link
+          attributes.push([key, link])
+        }
+        break
+      }
+      default:
+        throw new TypeError(`Unsupported value type: ${value}`)
+    }
+  }
+
+  const link = Link.of(entity)
+  for (const [attribute, value] of attributes) {
+    yield [link, attribute, value]
+  }
+
+  return link
+}
 
 /**
  * @param {[API.Entity, API.Attribute, API.Constant, cause?: API.Link[]]} source
@@ -20,11 +73,8 @@ const sort = (links) =>
 /**
  * @param {[API.Entity, API.Attribute, API.Constant, cause?: API.Link[]]} source
  */
-export const link = ([entity, attribute, value, cause = []]) => {
-  const bytes = CBOR.encode([entity, attribute, value, sort(cause)])
-  const digest = Blake3.blake3(bytes)
-  return Link.create(CBOR.code, Digest.create(0x1e, digest))
-}
+export const link = ([entity, attribute, value, cause = []]) =>
+  Link.of([entity, attribute, value, sort(cause)])
 
 class Fact extends Array {
   get entity() {

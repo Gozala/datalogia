@@ -1,8 +1,6 @@
 import * as DB from 'datalogia'
-import * as microshaft from './microshaft-facts.js'
+import testDB from './microshaft.db.js'
 import { startsWith } from '../src/constraint.js'
-
-const testDB = DB.Memory.create(microshaft)
 
 /**
  * @type {import('entail').Suite}
@@ -49,12 +47,12 @@ export const testMore = {
   'test supervisor': (assert) => {
     const Supervisor = DB.entity({
       name: DB.string,
-      salary: DB.integer,
+      salary: DB.link,
     })
 
     const Employee = DB.entity({
       name: DB.string,
-      salary: DB.integer,
+      salary: DB.link,
       supervisor: Supervisor,
     })
 

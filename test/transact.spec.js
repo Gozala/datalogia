@@ -39,10 +39,7 @@ export const testTransact = {
     ]
 
     const db = DB.Memory.create()
-
     await db.transact(ucans.map((ucan) => ({ Add: ucan })))
-
-    console.log([...db.facts({ attribute: 'can' })])
 
     const Capability = DB.entity({
       can: DB.string,
@@ -77,6 +74,7 @@ export const testTransact = {
       ],
     })
 
-    console.log(result)
+    assert.equal(result.length, 1)
+    assert.equal(result[0].space, alice)
   },
 }

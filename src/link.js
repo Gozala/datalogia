@@ -5,6 +5,8 @@ import * as CBOR from '@ipld/dag-cbor'
 import * as Blake3 from '@noble/hashes/blake3'
 import * as Digest from 'multiformats/hashes/digest'
 
+export * from './api.js'
+
 /**
  * @template {{} | null} T
  * @param {unknown|API.Link<T>} value

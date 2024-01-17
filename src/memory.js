@@ -1,16 +1,29 @@
 import * as API from './api.js'
 import { Constant } from './lib.js'
 import * as Link from './link.js'
+import * as Fact from './fact.js'
 
 /**
- * @param {object} source
- * @param {Iterable<API.Fact>} source.facts
+ * @param {{}} source
+ */
+export const entity = (source) => Link.of(source)
+
+/**
+ * @param {Iterable<API.Fact|API.Instantiation>} source
  * @returns {API.Querier & API.Transactor}
  */
-export const create = ({ facts } = { facts: [] }) => {
+export const create = (source = []) => {
   const memory = new Memory()
-  for (const fact of facts) {
-    associate(memory, fact)
+  for (const entry of source) {
+    if (Array.isArray(entry)) {
+      associate(memory, /** @type {API.Fact} */ (entry))
+    } else {
+      for (const fact of Fact.derive(
+        /** @type {API.Instantiation} */ (entry)
+      )) {
+        associate(memory, fact)
+      }
+    }
   }
 
   return memory
@@ -33,7 +46,9 @@ export const transact = (model, transaction) => {
     if (instruction.Associate) {
       associate(model, instruction.Associate)
     } else if (instruction.Add) {
-      add(model, instruction.Add)
+      for (const fact of Fact.derive(instruction.Add)) {
+        associate(model, fact)
+      }
     }
   }
 
@@ -49,7 +64,7 @@ export const transact = (model, transaction) => {
  * @param {Model} data
  * @param {API.Fact} fact
  */
-export const associate = ({ data, index }, fact) => {
+const associate = ({ data, index }, fact) => {
   const [entity, attribute, value] = fact
   // derive the fact identifier from the fact data
   const key = toKey([entity, attribute, value])
@@ -88,61 +103,6 @@ export const associate = ({ data, index }, fact) => {
   }
 
   return key
-}
-
-/**
- * @param {Model} model
- * @param {API.Instantiation} association
- */
-export const add = (model, association) => {
-  /** @type {Record<string, API.Constant|API.Constant[]>} */
-  const entity = {}
-  /** @type {Array<[API.Attribute, API.Constant]>} */
-  const attributes = []
-  for (const [key, value] of Object.entries(association)) {
-    switch (typeof value) {
-      case 'boolean':
-      case 'number':
-      case 'bigint':
-      case 'string':
-        entity[key] = value
-        attributes.push([key, value])
-        break
-      case 'object': {
-        if (Constant.is(value)) {
-          entity[key] = value
-          attributes.push([key, value])
-        } else if (Array.isArray(value)) {
-          const values = []
-          for (const member of value) {
-            if (Constant.is(member)) {
-              attributes.push([key, member])
-              values.push(member)
-            } else {
-              const entity = add(model, member)
-              attributes.push([key, entity])
-              values.push(entity)
-            }
-            entity[key] = values.sort(Constant.compare)
-          }
-        } else {
-          const link = add(model, value)
-          entity[key] = link
-          attributes.push([key, link])
-        }
-        break
-      }
-      default:
-        throw new TypeError(`Unsupported value type: ${value}`)
-    }
-  }
-
-  const link = Link.of(entity)
-  for (const [attribute, value] of attributes) {
-    associate(model, [link, attribute, value])
-  }
-
-  return link
 }
 
 class Memory {

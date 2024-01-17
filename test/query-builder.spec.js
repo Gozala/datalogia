@@ -1,7 +1,6 @@
 import * as DB from 'datalogia'
 import { select } from '../src/query-builder.js'
-import * as proofs from './proof-facts.js'
-const proofsDB = DB.Memory.create(proofs)
+import db from './proofs.db.js'
 
 /**
  * @type {import('entail').Suite}
@@ -12,21 +11,25 @@ export const testQueryBuilder = {
       uploadLink: DB.string(),
       storeLink: DB.string(),
     }).where(({ uploadLink, storeLink }) => {
+      const upload = DB.link()
+      const store = DB.link()
       const space = DB.string()
-      const uploadID = DB.string()
-      const storeID = DB.string()
+      const uploadAdd = DB.link()
+      const storeAdd = DB.link()
 
       return [
-        DB.match([uploadLink, 'capabilities', uploadID]),
-        DB.match([uploadID, 'can', 'upload/add']),
-        DB.match([uploadID, 'with', space]),
-        DB.match([storeLink, 'capabilities', storeID]),
-        DB.match([storeID, 'can', 'store/add']),
-        DB.match([storeID, 'with', space]),
+        DB.match([upload, 'cid', uploadLink]),
+        DB.match([upload, 'capabilities', uploadAdd]),
+        DB.match([uploadAdd, 'can', 'upload/add']),
+        DB.match([uploadAdd, 'with', space]),
+        DB.match([store, 'cid', storeLink]),
+        DB.match([store, 'capabilities', storeAdd]),
+        DB.match([storeAdd, 'can', 'store/add']),
+        DB.match([storeAdd, 'with', space]),
       ]
     })
 
-    assert.deepEqual(query.execute(proofsDB), [
+    assert.deepEqual(query.execute(db), [
       {
         uploadLink: 'bafy...upload',
         storeLink: 'bafy...store',

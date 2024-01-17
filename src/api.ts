@@ -242,7 +242,7 @@ export type Clause = Variant<{
 
 export type Frame = Record<PropertyKey, Term>
 
-export type Entity = string | Float32 | Int32 | Int64 | Link
+export type Entity = Link
 export type Attribute = string | Float32 | Int32 | Int64 | Bytes
 
 /**
