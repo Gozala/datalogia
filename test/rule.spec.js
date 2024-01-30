@@ -1,7 +1,5 @@
 import * as DB from 'datalogia'
-import * as proofsDB from './proof-facts.js'
-import * as moviesDB from './movie-facts.js'
-import * as employeeDB from './microshaft-facts.js'
+import db from './microshaft.db.js'
 import { rule } from '../src/rule.js'
 
 /**
@@ -9,11 +7,9 @@ import { rule } from '../src/rule.js'
  */
 export const testRules = {
   'test wheel rule': async (assert) => {
-    const db = DB.Memory.create(employeeDB)
-
-    const person = DB.integer()
-    const manager = DB.integer()
-    const employee = DB.integer()
+    const person = DB.link()
+    const manager = DB.link()
+    const employee = DB.link()
     const wheel = rule({
       match: { person },
       where: [
@@ -22,7 +18,7 @@ export const testRules = {
       ],
     })
 
-    const who = DB.integer()
+    const who = DB.link()
     const name = DB.string()
 
     const matches = DB.query(db, {
@@ -45,20 +41,19 @@ export const testRules = {
   },
 
   'leaves near': async (assert) => {
-    const db = DB.Memory.create(employeeDB)
     const employee = {
-      id: DB.integer(),
+      id: DB.link(),
       name: DB.string(),
       address: DB.string(),
     }
 
     const coworker = {
-      id: DB.integer(),
+      id: DB.link(),
       name: DB.string(),
       address: DB.string(),
     }
 
-    const operand = DB.integer()
+    const operand = DB.link()
     const same = rule({
       match: {
         operand,

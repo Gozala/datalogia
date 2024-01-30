@@ -30,7 +30,7 @@ import { and, or, not, match } from './clause.js'
  * @param {EntitySchema} schema
  * @returns {{new(): Entity<EntitySchema> & InferAttributes<EntitySchema>} & API.Type<API.Entity>}
  */
-export const entity = ({ ['.']: type, ...schema }) => {
+export const entity = (schema = /** @type {EntitySchema} */ ({})) => {
   // @ts-ignore
   return class extends Entity {
     constructor() {
@@ -90,9 +90,7 @@ class Entity {
    * @param {EntitySchema} source.schema
    */
   constructor({ schema }) {
-    const variable = /** @type {API.Variable<API.Entity>} */ (
-      Variable.variable()
-    )
+    const variable = Variable.link()
     this.model = { variable, schema }
     this['?'] = variable['?']
   }

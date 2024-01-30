@@ -5,6 +5,8 @@ import * as CBOR from '@ipld/dag-cbor'
 import * as Blake3 from '@noble/hashes/blake3'
 import * as Digest from 'multiformats/hashes/digest'
 
+export * from './api.js'
+
 /**
  * @template {{} | null} T
  * @param {unknown|API.Link<T>} value
@@ -66,3 +68,10 @@ export const of = (value) => {
     Link.create(CBOR.code, Digest.create(0x1e, digest))
   )
 }
+
+/**
+ * @param {API.Link} self
+ * @param {API.Link} other
+ */
+export const compare = (self, other) =>
+  self.toString().localeCompare(other.toString())

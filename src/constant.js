@@ -64,3 +64,10 @@ export const toString = (self) => {
     return String(self)
   }
 }
+
+/**
+ * @param {API.Constant} self
+ * @param {API.Constant} other
+ */
+export const compare = (self, other) =>
+  self.toString().localeCompare(other.toString())
