@@ -22,6 +22,10 @@
     "typescript",
     "graph"
   ],
+  "files": [
+    "src",
+    "dist/src"
+  ],
   "exports": {
     ".": {
       "types": "./dist/src/lib.d.ts",
