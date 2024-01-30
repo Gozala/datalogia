@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.1](https://github.com/Gozala/datalogia/compare/v0.1.0...v0.1.1) (2024-01-30)
+
+
+### Bug Fixes
+
+* publish typedefs ([41db463](https://github.com/Gozala/datalogia/commit/41db463205c43851a4ba716b685d0c8738205981))
+* publish typedefs ([#10](https://github.com/Gozala/datalogia/issues/10)) ([70aa596](https://github.com/Gozala/datalogia/commit/70aa5966b2aaee3ae3bde69bd357b8a9850af93d))
+
 ## [0.1.0](https://github.com/Gozala/datalogia/compare/v0.0.2...v0.1.0) (2024-01-17)
 
 
