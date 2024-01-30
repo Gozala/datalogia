@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/Gozala/datalogia/compare/v0.1.1...v0.2.0) (2024-01-30)
+
+
+### Features
+
+* simplify entity model ([#8](https://github.com/Gozala/datalogia/issues/8)) ([9bc04e0](https://github.com/Gozala/datalogia/commit/9bc04e06e0887c9648ec00907d212b39ba745f9d))
+
 ## [0.1.1](https://github.com/Gozala/datalogia/compare/v0.1.0...v0.1.1) (2024-01-30)
 
 
