@@ -5,6 +5,15 @@ import { entries } from './object.js'
 import * as Constraint from './constraint.js'
 import { and, match } from './clause.js'
 
+export {
+  like,
+  glob,
+  greater,
+  less,
+  greaterOrEqual,
+  lessOrEqual,
+} from './constraint.js'
+
 /**
  * @typedef {Record<string, API.Type>} Schema
  */
