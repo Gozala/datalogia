@@ -1,10 +1,9 @@
 import * as API from './api.js'
 import * as Variable from './variable.js'
 import * as Type from './type.js'
-import * as Link from './link.js'
 import { entries } from './object.js'
 import * as Constraint from './constraint.js'
-import { and, or, not, match } from './clause.js'
+import { and, match } from './clause.js'
 
 /**
  * @typedef {Record<string, API.Type>} Schema
@@ -274,7 +273,29 @@ export const dependencies = function* (term) {
   }
 }
 
-const { link, bytes, string, integer, float, boolean, _, toKey } = Variable
-export { link, bytes, string, integer, float, boolean, _, toKey }
+const {
+  variable,
+  confirm,
+  link,
+  bytes,
+  string,
+  integer,
+  float,
+  boolean,
+  _,
+  toKey,
+} = Variable
+export {
+  variable,
+  confirm,
+  link,
+  bytes,
+  string,
+  integer,
+  float,
+  boolean,
+  _,
+  toKey,
+}
 
 export { String, Int32 as Integer, Float32 as Float, Boolean } from './type.js'
