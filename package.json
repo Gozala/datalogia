@@ -1,6 +1,6 @@
 {
   "name": "datalogia",
-  "version": "0.0.2",
+  "version": "0.2.0",
   "description": "",
   "main": "index.js",
   "type": "module",
@@ -21,6 +21,10 @@
     "database",
     "typescript",
     "graph"
+  ],
+  "files": [
+    "src",
+    "dist/src"
   ],
   "exports": {
     ".": {

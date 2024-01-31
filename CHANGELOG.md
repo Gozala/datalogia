@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.2.0](https://github.com/Gozala/datalogia/compare/v0.1.1...v0.2.0) (2024-01-30)
+
+
+### Features
+
+* simplify entity model ([#8](https://github.com/Gozala/datalogia/issues/8)) ([9bc04e0](https://github.com/Gozala/datalogia/commit/9bc04e06e0887c9648ec00907d212b39ba745f9d))
+
+## [0.1.1](https://github.com/Gozala/datalogia/compare/v0.1.0...v0.1.1) (2024-01-30)
+
+
+### Bug Fixes
+
+* publish typedefs ([41db463](https://github.com/Gozala/datalogia/commit/41db463205c43851a4ba716b685d0c8738205981))
+* publish typedefs ([#10](https://github.com/Gozala/datalogia/issues/10)) ([70aa596](https://github.com/Gozala/datalogia/commit/70aa5966b2aaee3ae3bde69bd357b8a9850af93d))
+
+## [0.1.0](https://github.com/Gozala/datalogia/compare/v0.0.2...v0.1.0) (2024-01-17)
+
+
+### Features
+
+* basic rules engine ([57e713a](https://github.com/Gozala/datalogia/commit/57e713addf2a2eca6601c181b4269a838791917b))
+* implement pomodb spec ([7710109](https://github.com/Gozala/datalogia/commit/77101096dcf03153c1ad80acdfbb265eaec5f4a3))
+* implement predicates ([9d515c3](https://github.com/Gozala/datalogia/commit/9d515c3cddfcd96e4c0c9f9906dc3111915aec11))
+* implement predicates, rules and query optimizations ([#7](https://github.com/Gozala/datalogia/issues/7)) ([86d30db](https://github.com/Gozala/datalogia/commit/86d30dbf30ea2930af13a901d7e454c77dd30274))
+* implement query combinators ([79603a9](https://github.com/Gozala/datalogia/commit/79603a9dac3afe90e5da4b7ed27c6d660fa0a281))
+* negation ([9716489](https://github.com/Gozala/datalogia/commit/9716489152c5e705cba5224a5b2db1c876242c60))
+
+
+### Bug Fixes
+
+* align implementations ([94a26a3](https://github.com/Gozala/datalogia/commit/94a26a32b0fb2cbadd1c6e5f3e146b2863612c94))
+* db initializer ([966fcd8](https://github.com/Gozala/datalogia/commit/966fcd8c6eb7ab5a1520bdbcff81accee58967ef))
+* invalid reference ([06af02e](https://github.com/Gozala/datalogia/commit/06af02e194242b65eb6a2fdb0676bca48151e837))
+* some reference errors ([ac6f516](https://github.com/Gozala/datalogia/commit/ac6f51620cf6897302ac9566af1256080e60169f))
+* types ([10b03dc](https://github.com/Gozala/datalogia/commit/10b03dc40ccdf2db5e289a50ad56116c07b1204c))
+
 ## [0.0.2](https://github.com/Gozala/deductive/compare/v0.0.1...v0.0.2) (2023-12-17)
 
 
