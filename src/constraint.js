@@ -165,3 +165,90 @@ export const lessOrEqual = (operand, modifier) =>
   select({ operand, modifier }).where(
     ({ operand, modifier }) => operand <= modifier
   )
+
+const LIKE = { ignoreCase: true, single: '_', arbitrary: '%' }
+
+/**
+ * Creates a clause that checks that
+ *
+ * @param {API.Term<string>} text
+ * @param {API.Term<string>} pattern
+ */
+export const like = (text, pattern) =>
+  select({ pattern, text }).where(({ pattern, text }) =>
+    compile(pattern, LIKE).test(text)
+  )
+
+const ANY_CHAR = '[\\s\\S]'
+
+const GLOB = { ignoreCase: false, single: '?', arbitrary: '*' }
+
+/**
+ * @param {API.Term<string>} pattern
+ * @param {API.Term<string>} text
+ */
+export const glob = (text, pattern) =>
+  select({ pattern, text }).where(({ pattern, text }) =>
+    compile(pattern, GLOB).test(text)
+  )
+
+/**
+ *
+ * @param {string} source
+ * @param {object} options
+ * @param {boolean} options.ignoreCase
+ * @param {string} options.single
+ * @param {string} options.arbitrary
+ *
+ * @returns
+ */
+const compile = (source, { ignoreCase, single, arbitrary }) => {
+  const flags = ignoreCase ? 'i' : ''
+  let pattern = ''
+  let escaping = false
+  for (const char of source) {
+    switch (char) {
+      case single: {
+        pattern = escaping ? `${pattern}${char}` : `${pattern}${ANY_CHAR}`
+        escaping = false
+        break
+      }
+      case arbitrary: {
+        pattern = escaping ? `${pattern}${char}` : `${pattern}${ANY_CHAR}*`
+        escaping = false
+        break
+      }
+      case '\\': {
+        pattern = `${pattern}${char}`
+        escaping = !escaping
+        break
+      }
+      case '/':
+      case '*':
+      case '$':
+      case '^':
+      case '+':
+      case '.':
+      case ',':
+      case '(':
+      case ')':
+      case '<':
+      case '=':
+      case '!':
+      case '[':
+      case ']':
+      case '}':
+      case '{':
+      case '|': {
+        pattern = escaping ? `${pattern}${char}` : `${pattern}\\${char}`
+        escaping = false
+        break
+      }
+      default:
+        pattern = `${pattern}${char}`
+        break
+    }
+  }
+
+  return new RegExp(`^${pattern}$`, flags)
+}

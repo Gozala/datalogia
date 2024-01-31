@@ -115,6 +115,15 @@ class Variable {
 
 /**
  * @template {API.Constant} T
+ * @param {API.Variable<T>} variable
+ * @param {(value:T) => boolean} predicate
+ * @returns {API.Clause}
+ */
+export const confirm = (variable, predicate) =>
+  new Constraint({ variable, predicate })
+
+/**
+ * @template {API.Constant} T
  */
 class Constraint {
   /**
