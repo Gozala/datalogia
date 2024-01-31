@@ -167,11 +167,14 @@ export const lessOrEqual = (operand, modifier) =>
   )
 
 const LIKE = { ignoreCase: true, single: '_', arbitrary: '%' }
+
 /**
- * @param {API.Term<string>} pattern
+ * Creates a clause that checks that
+ *
  * @param {API.Term<string>} text
+ * @param {API.Term<string>} pattern
  */
-export const like = (pattern, text) =>
+export const like = (text, pattern) =>
   select({ pattern, text }).where(({ pattern, text }) =>
     compile(pattern, LIKE).test(text)
   )
@@ -184,7 +187,7 @@ const GLOB = { ignoreCase: false, single: '?', arbitrary: '*' }
  * @param {API.Term<string>} pattern
  * @param {API.Term<string>} text
  */
-export const glob = (pattern, text) =>
+export const glob = (text, pattern) =>
   select({ pattern, text }).where(({ pattern, text }) =>
     compile(pattern, GLOB).test(text)
   )
