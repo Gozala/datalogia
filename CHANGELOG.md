@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1](https://github.com/Gozala/datalogia/compare/v0.3.0...v0.3.1) (2024-02-06)
+
+
+### Bug Fixes
+
+* clause sorting order ([811091b](https://github.com/Gozala/datalogia/commit/811091b83e0c16db4d1cb4aeabbf1a4514a61c5e))
+* clause sorting order ([#18](https://github.com/Gozala/datalogia/issues/18)) ([558fb08](https://github.com/Gozala/datalogia/commit/558fb08891dd85046f053103a1656459a02f5650))
+
 ## [0.3.0](https://github.com/Gozala/datalogia/compare/v0.2.0...v0.3.0) (2024-01-31)
 
 
