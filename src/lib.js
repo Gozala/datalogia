@@ -108,28 +108,28 @@ const byClause = (operand, modifier) =>
  * @param {API.Clause} clause
  */
 const rateClause = (clause) => {
-  let score = 10
+  let score = 21
   if (clause.Case) {
     const [entity, attribute, value] = clause.Case
     if (Variable.is(entity)) {
-      score = -3
+      score -= 8
     }
     if (Variable.is(attribute)) {
-      score = -2
+      score -= 7
     }
     if (Variable.is(value)) {
-      score = -1
+      score -= 6
     }
   } else if (clause.And) {
-    score -= 6
+    score -= 5
   } else if (clause.Or) {
-    score -= 7
+    score -= 4
   } else if (clause.Form) {
-    score -= 8
+    score -= 3
   } else if (clause.Not) {
-    score -= 9
+    score -= 2
   } else if (clause.Rule) {
-    score -= 10
+    score -= 1
   }
 
   return score
