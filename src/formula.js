@@ -3,7 +3,6 @@ import * as Predicate from './formula/predicate.js'
 import * as NotIn from './formula/not-in.js'
 import * as Equality from './formula/equality.js'
 import * as Bindings from './bindings.js'
-import * as Constant from './constant.js'
 
 /**
  *
@@ -16,7 +15,7 @@ export const equality = (operand, modifier) => ({
 })
 
 /**
- * @template {API.Selector} Rows
+ * @template {API.Variables} Rows
  * @param {API.RelationID} id
  * @param {API.Version} version
  * @param {Rows} rows

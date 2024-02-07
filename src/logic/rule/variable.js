@@ -3,13 +3,13 @@ import { entries } from '../../object.js'
 import * as Variable from '../../variable.js'
 
 /**
- * @template {API.Selector} Variables
+ * @template {API.Variables} Variables
  * @param {API.VariablePredicate<Variables>} source
  */
 export const create = (source) => new VariablePredicate(source)
 
 /**
- * @template {API.Selector} Variables
+ * @template {API.Variables} Variables
  */
 class VariablePredicate {
   /**

@@ -3,6 +3,12 @@ import * as Variable from './variable.js'
 import * as Constant from './constant.js'
 
 /**
+ * @param {unknown} term
+ * @returns {term is API.Term}
+ */
+export const is = (term) => Variable.is(term) || Constant.is(term)
+
+/**
  * @param {API.Term} term
  */
 export const toJSON = (term) =>

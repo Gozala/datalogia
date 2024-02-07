@@ -8,6 +8,7 @@ import * as Term from './term.js'
 import { dependencies } from './dsl.js'
 import * as Constraint from './constraint.js'
 import * as Clause from './clause.js'
+import * as Selector from './selector.js'
 
 export * as Variable from './variable.js'
 export * from './api.js'
@@ -81,7 +82,7 @@ export const query = (db, { select, where }) => {
    * could collect missing attributes when materializing the results reducing
    * unnecessary work. However this is something that can be optimized later.
    */
-  for (const variable of Object.values(select)) {
+  for (const variable of Selector.variables(select)) {
     for (const clause of dependencies(variable)) {
       clauses.push(clause)
     }
@@ -91,9 +92,7 @@ export const query = (db, { select, where }) => {
     And: clauses.sort(byClause),
   })
 
-  return [...matches].map((match) =>
-    materialize(select, /** @type {API.InferBindings<Selection>} */ (match))
-  )
+  return [...matches].map((match) => Selector.select(select, match))
 }
 
 /**
@@ -134,23 +133,6 @@ const rateClause = (clause) => {
 
   return score
 }
-
-/**
- * @template {API.Selector} Selection
- * @param {Selection} select
- * @param {API.InferBindings<Selection>} bindings
- * @returns {API.InferBindings<Selection>}
- */
-const materialize = (select, bindings) =>
-  /** @type {API.InferBindings<Selection>} */
-  (
-    Object.fromEntries(
-      entries(select).map(([name, term]) => [
-        name,
-        Bindings.get(bindings, term),
-      ])
-    )
-  )
 
 /**
  *
@@ -400,14 +382,14 @@ const matchRule = function* (db, rule, bindings) {
 
 /**
  *
- * @param {API.Frame} input
+ * @param {API.Selector} input
  * @param {API.Selector} selector
  * @param {API.Bindings} bindings
  * @returns {API.Result<API.Bindings, Error>}
  */
 const unifyRule = (input, selector, bindings) => {
-  for (const [key, variable] of Object.entries(selector)) {
-    const result = unifyMatch(input[key], variable, bindings)
+  for (const [path, variable] of Selector.entries(selector)) {
+    const result = unifyMatch(Selector.at(input, path), variable, bindings)
     if (result.error) {
       return result
     }

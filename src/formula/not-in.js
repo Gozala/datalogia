@@ -4,7 +4,7 @@ import * as Bindings from '../bindings.js'
 import * as Term from '../term.js'
 
 /**
- * @template {API.Selector} Rows
+ * @template {API.Variables} Rows
  * @param {object} source
  * @param {Rows} source.rows
  * @param {API.RelationKey} source.relationKey
@@ -14,7 +14,7 @@ import * as Term from '../term.js'
 export const create = (source) => new NotIn(source)
 
 /**
- * @template {API.Selector} Rows
+ * @template {API.Variables} Rows
  */
 class NotIn {
   /**
@@ -48,14 +48,14 @@ class NotIn {
 }
 
 /**
- * @template {API.Selector} Rows
+ * @template {API.Variables} Rows
  * @param {API.NotIn<Rows>} model
  * @returns {Rows}
  */
 export const rows = (model) => model.rows
 
 /**
- * @template {API.Selector} Rows
+ * @template {API.Variables} Rows
  * @param {API.NotIn<Rows>} model
  * @param {API.Bindings} bindings
  * @returns {API.Result<{}, Error>}

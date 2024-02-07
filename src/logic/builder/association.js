@@ -4,7 +4,7 @@ import * as Table from '../table.js'
 import * as Row from '../row.js'
 
 /**
- * @template {API.Selector} Variables
+ * @template {API.Variables} Variables
  * @typedef {object} Model
  * @property {API.Declaration} relation
  * @property {Variables} variables
@@ -31,7 +31,7 @@ const create = (relation) =>
 
 /**
  *
- * @template {API.Selector} Variables
+ * @template {API.Variables} Variables
  * @param {API.Declaration} relation
  * @param {(builder: AssociationBuilder<{}>) => AssociationBuilder<Variables>} assemble
  * @returns {API.Result<API.InferBindings<Variables>, Error>}
@@ -39,7 +39,7 @@ const create = (relation) =>
 export const build = (relation, assemble) => assemble(create(relation)).build()
 
 /**
- * @template {API.Selector} Variables
+ * @template {API.Variables} Variables
  */
 class AssociationBuilder {
   /**

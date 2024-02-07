@@ -3,6 +3,7 @@ import * as Bindings from './bindings.js'
 import * as Term from './term.js'
 import * as Type from './type.js'
 import * as Constant from './constant.js'
+import * as Selector from './selector.js'
 
 /**
  * @template {API.Selector} Variables
@@ -52,15 +53,12 @@ class Filter {
    * @returns {API.Result<API.Unit, Error>}
    */
   confirm(bindings) {
-    const payload = /** @type {API.Bindings} */ ({})
-
-    for (const [key, variable] of Object.entries(this.model.select)) {
-      const value = Bindings.get(bindings, variable)
-      if (value == null) {
-        return { error: new RangeError(`Unbound variable ${key}`) }
-      } else {
-        payload[key] = value
-      }
+    const { ok: payload, error } = Selector.trySelect(
+      this.model.select,
+      bindings
+    )
+    if (error) {
+      return { error }
     }
 
     if (

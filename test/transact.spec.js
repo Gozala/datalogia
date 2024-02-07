@@ -56,6 +56,41 @@ export const testTransact = {
     const storeAdd = new Capability()
     const uploadAdd = new Capability()
 
+    // const WritePermission = DB.entity({
+    //   space: DB.string,
+    //   storeAdd: DB.link,
+    //   uploadAdd: DB.link,
+    // })
+
+    // Write = Rule(
+    //   { space: DB.string, store: DB.string, upload: DB.string },
+    //   ({ space, store, upload }) => [
+    //     UCAN({
+    //       id: upload,
+    //       att: Capability({ can: 'upload/add', with: space }),
+    //     }),
+    //     UCAN({ id: store, att: Capability({ can: 'store/add', with: space }) }),
+    //   ]
+    // )
+
+    // WritePermission = DB.rule({
+    //   match: {
+    //     space,
+    //     storeUCAN,
+    //     uploadUCAN,
+    //   },
+    //   where: [
+    //     UCAN({
+    //       id: uploadID,
+    //       att: Capability({ can: 'upload/add', with: space }),
+    //     }),
+    //     UCAN({
+    //       id: storeID,
+    //       att: Capability({ can: 'store/add', with: space }),
+    //     }),
+    //   ],
+    // })
+
     const result = DB.query(db, {
       select: {
         space,
