@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.3.1](https://github.com/Gozala/datalogia/compare/v0.3.0...v0.3.1) (2024-02-06)
+
+
+### Bug Fixes
+
+* clause sorting order ([811091b](https://github.com/Gozala/datalogia/commit/811091b83e0c16db4d1cb4aeabbf1a4514a61c5e))
+* clause sorting order ([#18](https://github.com/Gozala/datalogia/issues/18)) ([558fb08](https://github.com/Gozala/datalogia/commit/558fb08891dd85046f053103a1656459a02f5650))
+
+## [0.3.0](https://github.com/Gozala/datalogia/compare/v0.2.0...v0.3.0) (2024-01-31)
+
+
+### Features
+
+* add glob and like constraints ([#16](https://github.com/Gozala/datalogia/issues/16)) ([991253d](https://github.com/Gozala/datalogia/commit/991253d5a3065a36bbc4967b0d19b2b32ba8e66b))
+* export variable and confirm functions ([d936e5d](https://github.com/Gozala/datalogia/commit/d936e5da7b91b81f867e379302823985f71b8568))
+* like & glob patterns ([56e196c](https://github.com/Gozala/datalogia/commit/56e196cf118d8a3d713dffceb72dcb9a509f157e))
+
 ## [0.2.0](https://github.com/Gozala/datalogia/compare/v0.1.1...v0.2.0) (2024-01-30)
 
 
