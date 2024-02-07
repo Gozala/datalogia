@@ -8,7 +8,7 @@ import * as Selector from '../selector.js'
 import * as Where from '../where.js'
 
 /**
- * @template {API.Selector} Rows
+ * @template {API.Variables} Rows
  * @param {API.Select<Rows>} source
  */
 export const create = (source) => new Select(source)
@@ -18,7 +18,7 @@ export const create = (source) => new Select(source)
  * If successful `select.relation` will be updated with the new `instance`
  * corresponding to this select otherwise an error will be returned.
  *
- * @template {API.Selector} Rows
+ * @template {API.Variables} Rows
  * @param {API.Select<Rows>} select
  * @param {API.Bindings} bindings
  */
@@ -51,7 +51,7 @@ export const apply = ({ formulae, rows, relation, relationKey }, bindings) => {
   const [id] = relationKey
   const association = Association.create({
     head: id,
-    attributes: attributes,
+    attributes,
   })
 
   // 💣 Doing mutation does not seem ideal but we can fix that later.

@@ -355,16 +355,16 @@ export interface Search {
  */
 export interface Accumulate<
   T extends Constant = Constant,
-  Variables extends Selector = Selector,
+  Vars extends Variables = Variables,
 > {
-  variables: Variables
+  variables: Vars
   aggregator: Aggregate<{
     Self: {} | null
-    In: InferBindings<Variables>
+    In: InferBindings<Vars>
     Out: T
   }>
 
-  groupByRows: Selector
+  groupByRows: Variables
   target: Variable<T>
 
   id: RelationID
@@ -385,7 +385,7 @@ export interface Equality {
   modifier: Term
 }
 
-export interface NotIn<Rows extends Selector = Selector> {
+export interface NotIn<Rows extends Variables = Variables> {
   relationKey: RelationKey
   rows: Rows
   relation: Relation
@@ -437,33 +437,33 @@ export interface RuleModel<Variables extends Selector = Selector> {
   body: RuleBodyTerm[]
 }
 
-export interface VariablePredicate<Variables extends Selector = Selector> {
-  variables: Variables
+export interface VariablePredicate<Vars extends Variables = Variables> {
+  variables: Vars
   predicate: TryFrom<{ Self: {}; Input: InferBindings<Variables> }>
 }
 
-export interface RelationPredicate<Variables extends Selector = Selector> {
-  variables: Variables
+export interface RelationPredicate<Vars extends Variables = Variables> {
+  variables: Vars
   relation: Declaration
   link?: Term<Link>
 }
 
-export interface Negation<Variables extends Selector = Selector> {
-  variables: Variables
+export interface Negation<Vars extends Variables = Variables> {
+  variables: Vars
   relation: Declaration
 }
 
 export interface Aggregation<
   T extends Constant = Constant,
-  Variables extends Selector = Selector,
+  Vars extends Variables = Variables,
 > {
   target: Variable<T>
-  variables: Variables
+  variables: Vars
   relation: Declaration
-  groupByRows: Selector
+  groupByRows: Vars
   aggregator: Aggregate<{
     Self: {} | null
-    In: InferBindings<Variables>
+    In: InferBindings<Vars>
     Out: T
   }>
 }
@@ -481,7 +481,14 @@ export type BindingKey = Variant<{
  * Selection describes set of (named) variables that query engine will attempt
  * to find values for that satisfy the query.
  */
-export interface Selector extends Record<PropertyKey, Term> {}
+// export interface Selector
+//   extends Record<PropertyKey, Term | Term[] | Selector | Selector[]> {}
+export type Selector = PositionalSelector | NamedSelector
+
+export interface PositionalSelector extends Array<Selector | Term> {}
+export interface NamedSelector extends Record<PropertyKey, Selector | Term> {}
+
+export interface Variables extends Record<PropertyKey, Term> {}
 
 export type Selection = Selector | Variable<Link<Bindings>>
 
@@ -601,7 +608,15 @@ export type InferType<T extends RowType> = T['Any'] extends TryFrom<any>
                 : never
 
 export type InferBindings<Selection extends Selector> = {
-  [Key in keyof Selection]: Selection[Key] extends Term<infer T> ? T : never
+  [Key in keyof Selection]: Selection[Key] extends Term<infer T>
+    ? T
+    : Selection[Key] extends Term<infer T>[]
+      ? T[]
+      : Selection[Key] extends Selector[]
+        ? InferBindings<Selection[Key][0]>[]
+        : Selection[Key] extends Selector
+          ? InferBindings<Selection[Key]>
+          : never
 }
 
 export type InferTerm<T extends Term> = T extends Term<infer U> ? U : never

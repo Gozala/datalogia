@@ -4,14 +4,14 @@ import * as Variable from '../../variable.js'
 
 /**
  * @template {API.Constant} T
- * @template {API.Selector} Variables
+ * @template {API.Variables} Variables
  * @param {API.Aggregation<T, Variables>} source
  */
 export const create = (source) => new Aggregation(source)
 
 /**
  * @template {API.Constant} T
- * @template {API.Selector} Variables
+ * @template {API.Variables} Variables
  */
 class Aggregation {
   /**

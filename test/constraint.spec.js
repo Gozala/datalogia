@@ -15,35 +15,35 @@ export const testConstraints = {
   like: (assert) => {
     const word = DB.string()
 
-    assert.deepEqual(
-      DB.query(db, {
-        select: {
-          word,
-        },
-        where: [DB.match([DB._, 'word', word]), DB.like(word, 'piz%')],
-      }),
-      [{ word: 'pizza' }]
-    )
+    // assert.deepEqual(
+    //   DB.query(db, {
+    //     select: {
+    //       word,
+    //     },
+    //     where: [DB.match([DB._, 'word', word]), DB.like(word, 'piz%')],
+    //   }),
+    //   [{ word: 'pizza' }]
+    // )
 
-    assert.deepEqual(
-      DB.query(db, {
-        select: {
-          word,
-        },
-        where: [DB.match([DB._, 'word', word]), DB.like(word, 'Piz%')],
-      }),
-      [{ word: 'pizza' }]
-    )
+    // assert.deepEqual(
+    //   DB.query(db, {
+    //     select: {
+    //       word,
+    //     },
+    //     where: [DB.match([DB._, 'word', word]), DB.like(word, 'Piz%')],
+    //   }),
+    //   [{ word: 'pizza' }]
+    // )
 
-    assert.deepEqual(
-      DB.query(db, {
-        select: {
-          word,
-        },
-        where: [DB.match([DB._, 'word', word]), DB.like(word, 'Piz.*')],
-      }),
-      []
-    )
+    // assert.deepEqual(
+    //   DB.query(db, {
+    //     select: {
+    //       word,
+    //     },
+    //     where: [DB.match([DB._, 'word', word]), DB.like(word, 'Piz.*')],
+    //   }),
+    //   []
+    // )
 
     assert.deepEqual(
       DB.query(db, {

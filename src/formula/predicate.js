@@ -2,6 +2,7 @@ import * as API from '../api.js'
 import * as Term from '../term.js'
 import { entries } from '../object.js'
 import * as Bindings from '../bindings.js'
+import * as Selector from '../selector.js'
 
 /**
  * @template {API.Selector} Variables
@@ -16,24 +17,12 @@ export const create = (source) => new Predicate(source)
  * @returns {API.Result<{}, Error>}
  */
 export const conform = (predicate, bindings) => {
-  /** @type {API.Bindings} */
-  const input = {}
-  for (const [name, term] of entries(predicate.variables)) {
-    const binding = Bindings.get(bindings, term)
-    if (binding == null) {
-      return {
-        error: new RangeError(
-          `Failed to resolve ${Term.toString(
-            term
-          )} binding required by the predicate`
-        ),
-      }
-    } else {
-      input[name] = binding
-    }
+  const result = Selector.trySelect(predicate.variables, bindings)
+  if (result.error) {
+    return result
   }
 
-  return check(predicate, /** @type {API.InferBindings<Variables>} */ (input))
+  return check(predicate, result.ok)
 }
 
 /**
@@ -63,7 +52,7 @@ class Predicate {
   }
 
   /**
-   * @param {API.InferBindings<Variables>} input
+   * @param {API.Bindings} input
    */
   match(input) {
     return conform(this, input)
@@ -80,11 +69,4 @@ class Predicate {
 /**
  * @param {API.Predicate} self
  */
-export const toString = (self) => {
-  const variable = []
-  for (const [name, term] of entries(self.variables)) {
-    variable.push(`${String(name)}: ${Term.toString(term)}`)
-  }
-
-  return `UDF({${variable.join(', ')}})`
-}
+export const toString = (self) => `UDF({${Selector.toString(self.variables)}})`
