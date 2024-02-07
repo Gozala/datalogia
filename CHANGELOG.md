@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0](https://github.com/Gozala/datalogia/compare/v0.3.1...v0.4.0) (2024-02-07)
+
+
+### Features
+
+* implement nested selectors ([a26668d](https://github.com/Gozala/datalogia/commit/a26668dca08b04e1d45ab69934a8fc2178b69542))
+* nested selector ([#20](https://github.com/Gozala/datalogia/issues/20)) ([1d12da3](https://github.com/Gozala/datalogia/commit/1d12da3da4bdf02bd473d81923a3c3efee64157a))
+
 ## [0.3.1](https://github.com/Gozala/datalogia/compare/v0.3.0...v0.3.1) (2024-02-06)
 
 
