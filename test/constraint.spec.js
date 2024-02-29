@@ -12,7 +12,7 @@ const db = DB.Memory.create([
  * @type {import('entail').Suite}
  */
 export const testConstraints = {
-  like: (assert) => {
+  like: async (assert) => {
     const word = DB.string()
 
     // assert.deepEqual(
@@ -46,7 +46,7 @@ export const testConstraints = {
     // )
 
     assert.deepEqual(
-      DB.query(db, {
+      await DB.query(db, {
         select: {
           word,
         },
@@ -56,11 +56,11 @@ export const testConstraints = {
     )
   },
 
-  glob: (assert) => {
+  glob: async (assert) => {
     const word = DB.string()
 
     assert.deepEqual(
-      DB.query(db, {
+      await DB.query(db, {
         select: {
           word,
         },
@@ -71,7 +71,7 @@ export const testConstraints = {
     )
 
     assert.deepEqual(
-      DB.query(db, {
+      await DB.query(db, {
         select: {
           word,
         },
@@ -82,7 +82,7 @@ export const testConstraints = {
     )
 
     assert.deepEqual(
-      DB.query(db, {
+      await DB.query(db, {
         select: {
           word,
         },
@@ -93,7 +93,7 @@ export const testConstraints = {
     )
 
     assert.deepEqual(
-      DB.query(db, {
+      await DB.query(db, {
         select: {
           word,
         },
@@ -104,7 +104,7 @@ export const testConstraints = {
     )
 
     assert.deepEqual(
-      DB.query(db, {
+      await DB.query(db, {
         select: {
           word,
         },
@@ -115,7 +115,7 @@ export const testConstraints = {
     )
 
     assert.deepEqual(
-      DB.query(db, {
+      await DB.query(db, {
         select: {
           word,
         },
@@ -125,7 +125,7 @@ export const testConstraints = {
     )
 
     assert.deepEqual(
-      DB.query(db, {
+      await DB.query(db, {
         select: {
           word,
         },
@@ -141,7 +141,7 @@ export const testConstraints = {
     )
 
     assert.deepEqual(
-      DB.query(db, {
+      await DB.query(db, {
         select: {
           word,
         },
@@ -152,7 +152,7 @@ export const testConstraints = {
     )
 
     assert.deepEqual(
-      DB.query(db, {
+      await DB.query(db, {
         select: {
           word,
         },

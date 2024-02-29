@@ -21,7 +21,7 @@ export const testRules = {
     const who = DB.link()
     const name = DB.string()
 
-    const matches = DB.query(db, {
+    const matches = await DB.query(db, {
       select: {
         name: name,
       },
@@ -80,7 +80,7 @@ export const testRules = {
       ],
     })
 
-    const matches = DB.query(db, {
+    const matches = await DB.query(db, {
       select: {
         employee: employee.name,
         coworker: coworker.name,
