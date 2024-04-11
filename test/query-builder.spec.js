@@ -29,7 +29,7 @@ export const testQueryBuilder = {
       ]
     })
 
-    assert.deepEqual(query.execute(db), [
+    assert.deepEqual(await query.execute(db), [
       {
         uploadLink: 'bafy...upload',
         storeLink: 'bafy...store',

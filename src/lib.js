@@ -2,14 +2,13 @@ import * as API from './api.js'
 import * as Variable from './variable.js'
 import * as Rule from './rule.js'
 import * as Bindings from './bindings.js'
-import { entries } from './object.js'
 import { equal } from './constant.js'
 import * as Term from './term.js'
 import { dependencies } from './dsl.js'
 import * as Constraint from './constraint.js'
 import * as Clause from './clause.js'
 import * as Selector from './selector.js'
-
+import { encode } from '@ipld/dag-cbor'
 export * as Variable from './variable.js'
 export * from './api.js'
 export * as Memory from './memory.js'
@@ -23,7 +22,6 @@ export { API }
 const ENTITY = 0
 const ATTRIBUTE = 1
 const VALUE = 2
-
 export { Constraint }
 export const { select } = Constraint
 
@@ -33,9 +31,9 @@ export const { select } = Constraint
  * @param {object} source
  * @param {Selection} source.select
  * @param {Iterable<API.Clause>} source.where
- * @returns {API.InferBindings<Selection>[]}
+ * @returns {Promise<API.InferBindings<Selection>[]>}
  */
-export const query = (db, { select, where }) => {
+export const query = async (db, { select, where }) => {
   const clauses = []
 
   // Flatten all the `And` clauses.
@@ -88,8 +86,42 @@ export const query = (db, { select, where }) => {
     }
   }
 
-  const matches = evaluate(db, {
-    And: clauses.sort(byClause),
+
+  /**
+   * Ferret out all Cases, inclusive of those nested within Not and Rule clauses
+   * to ensure retreival of all related facts.
+   */
+
+  const cases = []
+
+  /** @type {Array<API.Clause>} */
+  const clauseStack = [...clauses]
+
+  while (clauseStack.length) {
+    const clause = clauseStack[0]
+    clauseStack.shift()
+    if (clause.Case) {
+      cases.push(clause.Case)
+    } else if (clause.And) {
+      clauseStack.unshift(...clause.And)
+    } else if (clause.Or) {
+      clauseStack.unshift(...clause.Or)
+    } else if (clause.Not) {
+      clauseStack.unshift(clause.Not)
+    } else if (clause.Rule) {
+      clauseStack.unshift(clause.Rule.rule.where)
+    }
+  }
+
+  // Collect all pertinent facts
+  const facts = await Promise.all(cases.map(c => iterateFacts(db, c)))
+
+  // Aggregate and de-dupe
+  const factMap = new Map()
+  facts.forEach(factArray => [...factArray].forEach(fact => factMap.set(encode(fact).toString(), fact)))
+
+  const matches = evaluate([...factMap.values()], {
+    And: clauses.sort(byClause)
   })
 
   return [...matches].map((match) => Selector.select(select, match))
@@ -136,24 +168,24 @@ const rateClause = (clause) => {
 
 /**
  *
- * @param {API.Querier} db
+ * @param {Array<API.Fact>} facts
  * @param {API.Clause} query
  * @param {Iterable<API.Bindings>} frames
  * @returns {Iterable<API.Bindings>}
  */
-export const evaluate = function* (db, query, frames = [{}]) {
+export const evaluate = function* (facts, query, frames = [{}]) {
   if (query.Or) {
-    yield* evaluateOr(db, query.Or, frames)
+    yield* evaluateOr(facts, query.Or, frames)
   } else if (query.And) {
-    yield* evaluateAnd(db, query.And, frames)
+    yield* evaluateAnd(facts, query.And, frames)
   } else if (query.Not) {
-    yield* evaluateNot(db, query.Not, frames)
+    yield* evaluateNot(facts, query.Not, frames)
   } else if (query.Form) {
-    yield* evaluateForm(db, query.Form, frames)
+    yield* evaluateForm(facts, query.Form, frames)
   } else if (query.Rule) {
-    yield* evaluateRule(db, query.Rule, frames)
+    yield* evaluateRule(facts, query.Rule, frames)
   } else {
-    const out = [...evaluateCase(db, query.Case, frames)]
+    const out = [...evaluateCase(facts, query.Case, frames)]
     yield* out
   }
 }
@@ -162,13 +194,13 @@ export const evaluate = function* (db, query, frames = [{}]) {
  * Takes conjunct queries and frames and returns extended frames.
  *
  *
- * @param {API.Querier} db
+ * @param {Array<API.Fact>} facts
  * @param {API.Clause[]} conjuncts
  * @param {Iterable<API.Bindings>} frames
  */
-export const evaluateAnd = function* (db, conjuncts, frames) {
+export const evaluateAnd = function* (facts, conjuncts, frames) {
   for (const query of conjuncts) {
-    frames = evaluate(db, query, frames)
+    frames = evaluate(facts, query, frames)
   }
 
   yield* frames
@@ -176,31 +208,31 @@ export const evaluateAnd = function* (db, conjuncts, frames) {
 
 /**
  *
- * @param {API.Querier} db
+ * @param {Array<API.Fact>} facts
  * @param {API.Clause} operand
  * @param {Iterable<API.Bindings>} frames
  */
-export const evaluateNot = function* (db, operand, frames) {
+export const evaluateNot = function* (facts, operand, frames) {
   for (const frame of frames) {
-    if (isEmpty(evaluate(db, operand, [frame]))) {
+    if (isEmpty(evaluate(facts, operand, [frame]))) {
       yield frame
     }
   }
 }
 
 /**
- * This is a filter similar to `evaluateNot`, each frame is is used to
+ * This is a filter similar to `evaluateNot`, each frame is used to
  * materialize an input for the predicate function. If predicate returns an
  * error frame is filtered out otherwise it is passed through.
  *
  * TODO: Currently unbound (frame) variables would get filtered out, however
  * we should instead throw an exception as query is invalid.
  *
- * @param {API.Querier} db
+ * @param {Array<API.Fact>} facts
  * @param {API.MatchForm} form
  * @param {Iterable<API.Bindings>} frames
  */
-export const evaluateForm = function* (db, form, frames) {
+export const evaluateForm = function* (facts, form, frames) {
   for (const bindings of frames) {
     if (form.confirm(bindings).ok) {
       yield bindings
@@ -221,29 +253,27 @@ const isEmpty = (iterable) => {
 /**
  * Takes disjunct queries and frames and returns extended frames.
  *
- * @param {API.Querier} db
+ * @param {Array<API.Fact>} facts
  * @param {API.Clause[]} disjuncts
  * @param {Iterable<API.Bindings>} frames
  */
-export const evaluateOr = function* (db, disjuncts, frames) {
+export const evaluateOr = function* (facts, disjuncts, frames) {
   // We copy iterable here because first disjunct will consume all the frames
   // and subsequent ones will not have any frames to work with otherwise.
   frames = [...frames]
   for (const query of disjuncts) {
-    yield* evaluate(db, query, frames)
+    yield* evaluate(facts, query, frames)
   }
 }
 
 /**
  *
- * @param {API.Querier} db
+ * @param {Array<API.Fact>} facts
  * @param {API.Clause['Case'] & {}} pattern
  * @param {Iterable<API.Bindings>} frames
  */
 
-const evaluateCase = function* (db, pattern, frames) {
-  // We collect facts to avoid reaching for the db on each frame.
-  const facts = [...iterateFacts(db, pattern)]
+const evaluateCase = function* (facts, pattern, frames) {
   for (const bindings of frames) {
     for (const fact of facts) {
       yield* matchFact(fact, pattern, bindings)
@@ -253,13 +283,13 @@ const evaluateCase = function* (db, pattern, frames) {
 
 /**
  *
- * @param {API.Querier} db
+ * @param {Array<API.Fact>} facts
  * @param {API.Clause['Rule'] & {}} rule
  * @param {Iterable<API.Bindings>} frames
  */
-const evaluateRule = function* (db, rule, frames) {
+const evaluateRule = function* (facts, rule, frames) {
   for (const bindings of frames) {
-    yield* matchRule(db, rule, bindings)
+    yield* matchRule(facts, rule, bindings)
   }
 }
 
@@ -267,8 +297,8 @@ const evaluateRule = function* (db, rule, frames) {
  * @param {API.Querier} db
  * @param {API.Pattern} pattern
  */
-const iterateFacts = (db, [entity, attribute, value]) =>
-  db.facts({
+const iterateFacts = async (db, [entity, attribute, value]) =>
+  await db.facts({
     entity: Variable.is(entity) ? undefined : entity,
     attribute: Variable.is(attribute) ? undefined : attribute,
     value: Variable.is(value) ? undefined : value,
@@ -366,17 +396,17 @@ export const matchVariable = (variable, value, bindings) => {
 
 /**
  *
- * @param {API.Querier} db
+ * @param {Array<API.Fact>} facts
  * @param {API.MatchRule} rule
  * @param {API.Bindings} bindings
  */
-const matchRule = function* (db, rule, bindings) {
+const matchRule = function* (facts, rule, bindings) {
   const { match, where } = Rule.setup(rule.rule)
 
   // Unify passed rule bindings with the rule match pattern.
   const result = unifyRule(rule.input, match, bindings)
   if (!result.error) {
-    yield* evaluate(db, where, [result.ok])
+    yield* evaluate(facts, where, [result.ok])
   }
 }
 

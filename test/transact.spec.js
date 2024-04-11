@@ -91,7 +91,7 @@ export const testTransact = {
     //   ],
     // })
 
-    const result = DB.query(db, {
+    const result = await DB.query(db, {
       select: {
         space,
         storeUCAN,

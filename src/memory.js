@@ -129,8 +129,9 @@ class Memory {
 
   /**
    * @param {API.FactsSelector} selector
+   * @returns {Promise<Iterable<API.Fact>>}
    */
-  facts({ entity, attribute, value }) {
+  async facts({ entity, attribute, value }) {
     const key = toKey([entity ?? null, attribute ?? null, value ?? null])
     return this.model.index[key.toString()] ?? []
   }

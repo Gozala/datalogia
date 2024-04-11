@@ -74,9 +74,9 @@ class Query {
   /**
    *
    * @param {API.Querier} db
-   * @returns {API.InferBindings<Selection>[]}
+   * @returns {Promise<API.InferBindings<Selection>[]>}
    */
-  execute(db) {
-    return query(db, this.model)
+  async execute(db) {
+    return await query(db, this.model)
   }
 }
