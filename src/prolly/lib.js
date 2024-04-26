@@ -1,6 +1,6 @@
-import * as Tree from './prolly/tree.js'
+import * as Tree from './tree.js'
 import * as CBOR from '@ipld/dag-cbor'
-import * as Leaf from './prolly/leaf.js'
+import * as Leaf from './leaf.js'
 import { blake3 } from '@noble/hashes/blake3'
 
 export { Tree }

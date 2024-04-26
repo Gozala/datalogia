@@ -1,4 +1,4 @@
-import * as Prolly from '../src/prolly.js'
+import * as Prolly from '../src/prolly/lib.js'
 import * as CBOR from '@ipld/dag-cbor'
 
 /**
