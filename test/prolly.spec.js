@@ -1,7 +1,5 @@
-import { entity } from '../src/dsl.js'
 import * as Prolly from '../src/prolly.js'
 import * as CBOR from '@ipld/dag-cbor'
-import { entries } from '../src/selector.js'
 
 /**
  * @type {import('entail').Suite}
@@ -61,7 +59,7 @@ export const testProllyTree = {
   },
 
   'insertion in revers results in same tree': async (assert) => {
-    const entries = [...new Uint8Array(1024).keys()].map((k) => [k, k])
+    const entries = [...new Uint8Array(10240).keys()].map((k) => [k, k])
 
     let map = new Map()
     for (const [key] of entries) {

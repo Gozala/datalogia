@@ -1,34 +1,44 @@
 import * as Tree from './prolly/tree.js'
 import * as CBOR from '@ipld/dag-cbor'
 import * as Leaf from './prolly/leaf.js'
+import { blake3 } from '@noble/hashes/blake3'
 
 export { Tree }
 
+/**
+ * @typedef {object} EncodingSettings
+ * @property {(key:unknown) => Uint8Array} toKey
+ * @property {(value:unknown) => Uint8Array} toValue
+ * @typedef {Tree.Settings & EncodingSettings} Settings
+ */
+
+/**
+ * @type {Settings}
+ */
 export const DEFAULT_SETTINGS = {
   width: Tree.DEFAULT_WIDTH,
   toKey: CBOR.encode,
   toValue: CBOR.encode,
+  digest: blake3,
 }
 
 /**
  *
  * @param {Iterable<[unknown, unknown]>} entries
- * @param {object} [options]
- * @param {(key:unknown) => Uint8Array} [options.toKey]
- * @param {(key:unknown) => Uint8Array} [options.toValue]
- * @param {number} [options.width]
+ * @param {Partial<Settings>} [options]
  */
 export const fromEntries = (
   entries,
   {
-    toKey = CBOR.encode,
-    toValue = CBOR.encode,
-    width = Tree.DEFAULT_WIDTH,
+    toKey = DEFAULT_SETTINGS.toKey,
+    toValue = DEFAULT_SETTINGS.toKey,
+    digest = DEFAULT_SETTINGS.digest,
+    width = DEFAULT_SETTINGS.width,
   } = {}
 ) => {
   return Tree.fromEntries(
     [...entries].map(([key, value]) => [toKey(key), toValue(value)]),
-    { width }
+    { width, digest }
   )
 }
 
@@ -37,14 +47,12 @@ export const fromEntries = (
  * @param {Tree.Model} tree
  * @param {unknown} key
  * @param {unknown} value
- * @param {object} options
- * @param {(key:unknown) => Uint8Array} [options.toKey]
- * @param {(key:unknown) => Uint8Array} [options.toValue]
+ * @param {Partial<EncodingSettings>} options
  * @returns {Tree.Branch}
  */
 export const set = (
   tree,
   key,
   value,
-  { toKey = CBOR.encode, toValue = CBOR.encode } = {}
+  { toKey = DEFAULT_SETTINGS.toKey, toValue = DEFAULT_SETTINGS.toKey } = {}
 ) => Tree.insert(tree, Leaf.create(toKey(key), toValue(value)))

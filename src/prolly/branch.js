@@ -1,10 +1,12 @@
 import * as Node from './node.js'
 import * as Leaf from './leaf.js'
-import { blake3 as Blake3 } from '@noble/hashes/blake3'
+
+const HASH_SIZE = 32
 
 /**
  * @typedef {object} Settings
  * @property {number} width
+ * @property {(input:Uint8Array) => Uint8Array} digest
  */
 
 class Builder {
@@ -15,8 +17,15 @@ class Builder {
   constructor(children, settings) {
     this.settings = settings
     this.children = children
+    this.capacity = settings.width
 
-    this.hash = Blake3.create({})
+    /**
+     * We probabilistically allocate buffer that can hold `settings.width * 1.5`
+     * amount of child hashes to account for probability of having more children
+     * than intended.
+     */
+    this.buffer = new Uint8Array(HASH_SIZE * this.capacity)
+    this.offset = 0
   }
   /**
    *
@@ -24,19 +33,28 @@ class Builder {
    */
   insert(child) {
     this.children.push(child)
-    this.hash.update(child.digest)
+
+    // If we are going to overflow the buffer we perform compaction by hashing
+    // current content
+    if (this.children.length >= this.capacity) {
+      const digest = this.settings.digest(this.buffer)
+      this.buffer.set(digest)
+      this.offset = digest.length
+    }
+
+    this.buffer.set(child.digest, this.offset)
   }
 
   build() {
-    const digest = this.hash.digest()
+    const digest = this.settings.digest(this.buffer.subarray(0, this.offset))
+    this.offset = 0
     return new Branch(digest, this.children, this.settings)
   }
 }
 
 /**
  * @param {Child} child
- * @param {object} settings
- * @param {number} settings.width
+ * @param {Settings} settings
  */
 export const builder = (child, settings) => new Builder([child], settings)
 
@@ -44,15 +62,16 @@ export const builder = (child, settings) => new Builder([child], settings)
  * @typedef {Leaf.Model|Model} Child
  * @typedef {[Child, ...Child[]]} Children
  * @param {[Child, ...Child[]]} children
- * @param {object} settings
- * @param {number} settings.width
+ * @param {Settings} settings
  */
 export const fromChildren = (children, settings) => {
-  const hash = Blake3.create({})
-  for (const child of children) {
-    hash.update(child.digest)
+  const buffer = new Uint8Array(children.length * HASH_SIZE)
+  let offset = 0
+  for (const { digest } of children) {
+    buffer.set(digest, offset)
+    offset += digest.length
   }
-  const digest = hash.digest()
+  const digest = settings.digest(buffer)
 
   return new Branch(digest, children, settings)
 }
