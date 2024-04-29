@@ -20,6 +20,9 @@ export const compare = (left, right) => {
 }
 
 /**
+ * Borrowed from canvas.kyz boundary checks.
+ * @see https://docs.canvas.xyz/blog/2023-05-04-merklizing-the-key-value-store.html#content-defined-merkle-trees
+ *
  * @param {Uint8Array} digest
  * @param {number} width
  */
