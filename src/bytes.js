@@ -1,6 +1,42 @@
 import { base64 } from 'multiformats/bases/base64'
 
 /**
+ * Return concatenation of `left` and `right` byte arrays.
+ *
+ * @param {Uint8Array} left
+ * @param {Uint8Array} right
+ */
+export const concat = (left, right) => {
+  const result = new Uint8Array(left.length + right.length)
+  result.set(left, 0)
+  result.set(right, left.length)
+  return result
+}
+
+/**
+ * @param {Uint8Array} self
+ * @param {Uint8Array} other
+ * @returns {0|-1|1}
+ */
+export const compare = (self, other) => {
+  const count = Math.min(self.length, other.length)
+  let offset = 0
+  while (offset < count) {
+    const delta = self[offset] - other[offset]
+    if (delta < 0) {
+      return -1
+    } else if (delta > 0) {
+      return 1
+    } else {
+      offset++
+    }
+  }
+
+  const delta = self.length - other.length
+  return delta < 0 ? -1 : delta > 0 ? 1 : 0
+}
+
+/**
  * @param {Uint8Array} self
  * @param {Uint8Array} other
  * @returns {boolean}
