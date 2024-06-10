@@ -77,7 +77,6 @@ export const fromChildren = (children, settings) => {
 }
 
 /**
- *
  * @param {Model} node
  * @param {Leaf.Model} target
  */
