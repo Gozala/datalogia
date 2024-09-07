@@ -298,7 +298,7 @@ export interface Transactor {
 }
 
 export interface Querier {
-  facts(selector?: FactsSelector): Iterable<Fact>
+  facts(selector?: FactsSelector): Promise<Result<Fact[], Error>>
 }
 
 export type Constraint = Variant<{
@@ -505,8 +505,10 @@ export type Confirmation = Variant<{
   error: Error
 }>
 
-export interface MatchForm {
-  confirm(bindings: Bindings): Confirmation
+export interface MatchForm<Variables extends Selector = Selector> {
+  selector: Variables
+
+  confirm(selector: Selector, bindings: Bindings): Confirmation
 }
 
 /**

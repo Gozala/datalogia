@@ -35,6 +35,7 @@ class Selection {
 
 /**
  * @template {API.Selector} Variables
+ * @implements {API.MatchForm<Variables>}
  */
 class Filter {
   /**
@@ -44,19 +45,24 @@ class Filter {
    */
   constructor(model) {
     this.model = model
+    this.confirm = this.confirm.bind(this)
   }
   get Form() {
     return this
   }
+  get selector() {
+    return this.model.select
+  }
+  get predicate() {
+    return this.model.predicate
+  }
   /**
+   * @param {Variables} selector
    * @param {API.Bindings} bindings
    * @returns {API.Result<API.Unit, Error>}
    */
-  confirm(bindings) {
-    const { ok: payload, error } = Selector.trySelect(
-      this.model.select,
-      bindings
-    )
+  confirm(selector, bindings) {
+    const { ok: payload, error } = Selector.trySelect(selector, bindings)
     if (error) {
       return { error }
     }

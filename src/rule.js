@@ -4,6 +4,7 @@ import * as Row from './logic/row.js'
 import * as Variable from './variable.js'
 import * as Clause from './clause.js'
 import * as Schema from './dsl.js'
+import * as Constant from './constant.js'
 
 /**
  * @template {API.Variables} Match
@@ -37,7 +38,7 @@ const build = ({ match, where = [] }) => {
 /**
  * @template {API.Variables} Match
  */
-class Rule {
+export class Rule {
   /**
    * @param {object} source
    * @param {Match} source.match
@@ -155,15 +156,110 @@ let RULE_APPLICATION_ID = 0
 /**
  * @param {API.Rule} rule
  */
-export const setup = (rule) => {
-  // TODO: Generate new keys for all the variables inside the rule
-  return rule
+export const setup = (rule) => renameVariablesIn(rule, {})
+
+/**
+ *
+ * @param {API.Rule} rule
+ * @param {Record<string, API.Variable>} table
+ */
+const renameVariablesIn = (rule, table = {}) => {
+  const match = renameSelectorVariables(rule.match, table)
+  const where = renameClauseVariables(rule.where, table)
+  return { match, where }
+}
+
+/**
+ * @param {API.Selector} selector
+ * @param {Record<string, API.Variable>} table
+ * @returns {API.Selector}
+ */
+const renameSelectorVariables = (selector, table) =>
+  Object.fromEntries(
+    Object.entries(selector).map(([key, member]) => [
+      key,
+      Variable.is(member)
+        ? renameVariable(member, table)
+        : Constant.is(member)
+          ? member
+          : renameSelectorVariables(member, table),
+    ])
+  )
+
+/**
+ *
+ * @param {API.Clause} clause
+ * @param {Record<string, API.Variable>} table
+ * @returns {API.Clause}
+ */
+export const renameClauseVariables = (clause, table) => {
+  if (clause.And) {
+    return { And: clause.And.map(($) => renameClauseVariables($, table)) }
+  } else if (clause.Or) {
+    return { Or: clause.Or.map(($) => renameClauseVariables($, table)) }
+  } else if (clause.Not) {
+    return { Not: renameClauseVariables(clause.Not, table) }
+  } else if (clause.Form) {
+    return {
+      Form: {
+        selector: renameSelectorVariables(clause.Form.selector, table),
+        confirm: clause.Form.confirm,
+      },
+    }
+  } else if (clause.Case) {
+    const [entity, attribute, value] = clause.Case
+    return {
+      Case: [
+        renameTermVariable(entity, table),
+        renameTermVariable(attribute, table),
+        renameTermVariable(value, table),
+      ],
+    }
+  } else if (clause.Rule) {
+    return {
+      Rule: {
+        input: renameSelectorVariables(clause.Rule.input, table),
+        rule: clause.Rule.rule,
+      },
+    }
+  } else {
+    return clause
+  }
+}
+
+/**
+ * @template {API.Term} T
+ * @param {T} term
+ * @param {Record<string, API.Variable>} table
+ * @returns {T}
+ */
+const renameTermVariable = (term, table) =>
+  Variable.is(term) ? renameVariable(term, table) : term
+
+/**
+ * @template {API.Variable} T
+ * @param {T} variable
+ * @param {Record<string, API.Variable>} table
+ * @returns {T}
+ */
+const renameVariable = (variable, table) => {
+  const id = Variable.id(variable)
+  const type = Variable.toType(variable)
+  if (table[id] == null) {
+    table[id] = Variable.variable(type)
+  }
+  return /** @type {T} */ (table[id])
 }
 
 /**
  * @param {API.Rule} rule
  */
 export const conclusion = (rule) => rule.match
+
+/**
+ * @param {API.Rule} rule
+ */
+export const body = (rule) => rule.where
 
 /**
  * @template {API.Variables} Bindings

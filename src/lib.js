@@ -202,7 +202,7 @@ export const evaluateNot = function* (db, operand, frames) {
  */
 export const evaluateForm = function* (db, form, frames) {
   for (const bindings of frames) {
-    if (form.confirm(bindings).ok) {
+    if (form.confirm(form.selector, bindings).ok) {
       yield bindings
     }
   }
