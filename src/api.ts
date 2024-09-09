@@ -405,21 +405,23 @@ export type Version = Variant<{
   New: {}
 }>
 
-export type Rule = DeductiveRule | InductiveRule
+export type Rule<Match extends Selector = Selector> =
+  | DeductiveRule<Match>
+  | InductiveRule<Match>
 
-export interface MatchRule {
+export interface MatchRule<Match extends Selector = Selector> {
   input: Selector
-  rule: Rule
+  rule?: Rule<Match>
 }
 
-export interface DeductiveRule {
-  match: Selector
+export interface DeductiveRule<Match extends Selector = Selector> {
+  select: Match
   // where: RulePredicate[]
   where: Clause
 }
 
-export interface InductiveRule {
-  match: Selector
+export interface InductiveRule<Match extends Selector = Selector> {
+  select: Match
   // where: RulePredicate[]
   where: Clause
 }

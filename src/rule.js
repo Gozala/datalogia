@@ -8,14 +8,24 @@ import * as Constant from './constant.js'
 
 /**
  * @template {API.Variables} Match
+ * @param {{[K in keyof Match]: Match[K] extends API.Variable<infer T> ? API.Term<T> : Match[K]}} input
+ * @param {API.Rule<Match>} [rule]
+ * @returns {API.Clause}
+ */
+export const match = (input, rule) => ({
+  Rule: { input, rule },
+})
+
+/**
+ * @template {API.Variables} Match
  *
  * @param {object} source
- * @param {Match} source.match
+ * @param {Match} source.select
  * @param {API.Clause[]} [source.where]
  */
-export const rule = ({ match, where = [] }) =>
+export const rule = ({ select, where = [] }) =>
   new Rule({
-    match,
+    select,
     where: { And: where },
   })
 
@@ -41,12 +51,20 @@ const build = ({ match, where = [] }) => {
 export class Rule {
   /**
    * @param {object} source
-   * @param {Match} source.match
+   * @param {Match} source.select
    * @param {API.Clause} source.where
    */
   constructor(source) {
     this.source = source
   }
+
+  get select() {
+    return this.source.select
+  }
+  get where() {
+    return this.source.where
+  }
+
   /**
    *
    * @param {{[K in keyof Match]: Match[K] extends API.Variable<infer T> ? API.Term<T> : Match[K]}} input
@@ -164,8 +182,8 @@ export const setup = (rule) => renameVariablesIn(rule, {})
  * @param {Record<string, API.Variable>} table
  */
 const renameVariablesIn = (rule, table = {}) => {
-  const match = renameSelectorVariables(rule.match, table)
-  const where = renameClauseVariables(rule.where, table)
+  const match = renameSelectorVariables(rule.select, table)
+  const where = renameClauseVariables(rule.where, table, rule)
   return { match, where }
 }
 
@@ -190,15 +208,16 @@ const renameSelectorVariables = (selector, table) =>
  *
  * @param {API.Clause} clause
  * @param {Record<string, API.Variable>} table
+ * @param {API.Rule} rule
  * @returns {API.Clause}
  */
-export const renameClauseVariables = (clause, table) => {
+export const renameClauseVariables = (clause, table, rule) => {
   if (clause.And) {
-    return { And: clause.And.map(($) => renameClauseVariables($, table)) }
+    return { And: clause.And.map(($) => renameClauseVariables($, table, rule)) }
   } else if (clause.Or) {
-    return { Or: clause.Or.map(($) => renameClauseVariables($, table)) }
+    return { Or: clause.Or.map(($) => renameClauseVariables($, table, rule)) }
   } else if (clause.Not) {
-    return { Not: renameClauseVariables(clause.Not, table) }
+    return { Not: renameClauseVariables(clause.Not, table, rule) }
   } else if (clause.Form) {
     return {
       Form: {
@@ -219,7 +238,8 @@ export const renameClauseVariables = (clause, table) => {
     return {
       Rule: {
         input: renameSelectorVariables(clause.Rule.input, table),
-        rule: clause.Rule.rule,
+        // If rule is omitted it is a recursive rule
+        rule: clause.Rule.rule ?? rule,
       },
     }
   } else {
@@ -254,7 +274,7 @@ const renameVariable = (variable, table) => {
 /**
  * @param {API.Rule} rule
  */
-export const conclusion = (rule) => rule.match
+export const conclusion = (rule) => rule.select
 
 /**
  * @param {API.Rule} rule

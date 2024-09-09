@@ -21,22 +21,19 @@ export const testRecursion = {
     const list = DB.link()
     const item = DB.link()
     const head = DB.link()
-    const child = new Rule({
-      match: { list, item },
-      /**
-       * @type {DB.Clause}
-       */
-      get where() {
-        return DB.or(
-          // head of the list is the child
+    const child = DB.rule({
+      select: { list, item },
+      where: [
+        DB.or(
+          // head of the list is the item
           DB.match([list, 'list/next', item]),
+          // or item is a child of the head
           DB.and(
-            // child of the head is the child of the list
-            DB.match([head, 'list/next', item]),
-            child.match({ list, item: head })
+            DB.match([list, 'list/next', head]),
+            DB.Rule.match({ list: head, item })
           )
-        )
-      },
+        ),
+      ],
     })
 
     const root = DB.link()

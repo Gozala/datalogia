@@ -371,12 +371,16 @@ export const matchVariable = (variable, value, bindings) => {
  * @param {API.Bindings} bindings
  */
 const matchRule = function* (db, rule, bindings) {
-  const { match, where } = Rule.setup(rule.rule)
+  if (rule.rule) {
+    const { match, where } = Rule.setup(rule.rule)
 
-  // Unify passed rule bindings with the rule match pattern.
-  const result = unifyRule(rule.input, match, bindings)
-  if (!result.error) {
-    yield* evaluate(db, where, [result.ok])
+    // Unify passed rule bindings with the rule match pattern.
+    const result = unifyRule(rule.input, match, bindings)
+    if (!result.error) {
+      yield* evaluate(db, where, [result.ok])
+    }
+  } else {
+    yield bindings
   }
 }
 

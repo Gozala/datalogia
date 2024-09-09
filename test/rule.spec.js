@@ -11,7 +11,7 @@ export const testRules = {
     const manager = DB.link()
     const employee = DB.link()
     const wheel = rule({
-      match: { person },
+      select: { person },
       where: [
         { Case: [manager, 'supervisor', person] },
         { Case: [employee, 'supervisor', manager] },
@@ -55,14 +55,14 @@ export const testRules = {
 
     const operand = DB.link()
     const same = rule({
-      match: {
+      select: {
         operand,
         modifier: operand,
       },
     })
 
     const livesNear = rule({
-      match: {
+      select: {
         employee: employee.id,
         coworker: coworker.id,
       },
