@@ -21,8 +21,8 @@ export const toJSON = (clause) => {
     return {
       Rule: {
         input: Selector.toJSON(clause.Rule.input),
-        rule: {
-          match: Selector.toJSON(clause.Rule.rule.match),
+        rule: clause.Rule.rule && {
+          match: Selector.toJSON(clause.Rule.rule?.select ?? {}),
           where: toJSON(clause.Rule.rule.where),
         },
       },

@@ -298,7 +298,7 @@ export interface Transactor {
 }
 
 export interface Querier {
-  facts(selector?: FactsSelector): Promise<Result<Fact[], Error>>
+  facts(selector?: FactsSelector): Fact[]
 }
 
 export type Constraint = Variant<{
