@@ -32,8 +32,13 @@ export const create = (source = []) => {
 /**
  * @param {[API.Entity|null, API.Attribute|null, API.Constant|null]} model
  */
-export const toKey = ([entity, attribute, value]) =>
+export const toLink = ([entity, attribute, value]) =>
   Link.of([entity, attribute, value])
+
+/**
+ * @param {[API.Entity|null, API.Attribute|null, API.Constant|null]} model
+ */
+export const toKey = (model) => toLink(model).toString()
 
 /**
  *
@@ -45,6 +50,8 @@ export const transact = (model, transaction) => {
   for (const instruction of transaction) {
     if (instruction.Associate) {
       associate(model, instruction.Associate)
+    } else if (instruction.Disassociate) {
+      dissociate(model, instruction.Disassociate)
     } else if (instruction.Add) {
       for (const fact of Fact.derive(instruction.Add)) {
         associate(model, fact)
@@ -56,9 +63,26 @@ export const transact = (model, transaction) => {
 }
 
 /**
+ *
+ * @param {API.Fact} fact
+ */
+
+const toKeys = ([entity, attribute, value]) => [
+  // by entity
+  toKey([entity, null, null]),
+  toKey([entity, attribute, null]),
+  toKey([entity, null, value]),
+  // by attribute
+  toKey([null, attribute, null]),
+  toKey([null, attribute, value]),
+  // by value
+  toKey([null, null, value]),
+]
+
+/**
  * @typedef {object} Model
  * @property {Record<string, API.Fact>} data
- * @property {Record<string, API.Fact[]>} index
+ * @property {Record<string, Record<string, API.Fact>>} index
  *
  *
  * @param {Model} data
@@ -67,8 +91,7 @@ export const transact = (model, transaction) => {
 const associate = ({ data, index }, fact) => {
   const [entity, attribute, value] = fact
   // derive the fact identifier from the fact data
-  const key = toKey([entity, attribute, value])
-  const id = key.toString()
+  const id = toKey([entity, attribute, value])
 
   // If the fact is not yet known we need to store it and index it.
   if (!(id in data)) {
@@ -76,33 +99,45 @@ const associate = ({ data, index }, fact) => {
 
     // We also index new fact by each of its components so that we can
     // efficiently query by entity, attribute or value.
-    const keys = [
-      key,
-      // by entity
-      toKey([entity, null, null]),
-      toKey([entity, attribute, null]),
-      toKey([entity, null, value]),
-      // by attribute
-      toKey([null, attribute, null]),
-      toKey([null, attribute, value]),
-      // by value
-      toKey([null, null, value]),
-    ]
+    const keys = [id, ...toKeys([entity, attribute, value])]
 
     for (const key of keys) {
-      const id = key.toString()
       // If we already have some facts in this index we add a new fact,
       // otherwise we create a new index.
-      const facts = index[id]
+      const facts = index[key]
       if (facts) {
-        facts.push(fact)
+        facts[id] = fact
       } else {
-        index[id] = [fact]
+        index[key] = { [id]: fact }
       }
     }
   }
 
-  return key
+  return id
+}
+
+/**
+ * @param {Model} data
+ * @param {API.Fact} fact
+ */
+export const dissociate = ({ data, index }, fact) => {
+  const [entity, attribute, value] = fact
+  // derive the fact identifier from the fact data
+  const id = toKey([entity, attribute, value])
+
+  // If the fact is not yet known we need to store it and index it.
+  if (id in data) {
+    delete data[id]
+
+    // We also need to delete fact from the index.
+    const keys = [id, ...toKeys([entity, attribute, value])]
+
+    for (const key of keys) {
+      // If we already have some facts in this index we add a new fact,
+      // otherwise we create a new index.
+      delete index[key][id]
+    }
+  }
 }
 
 class Memory {
@@ -131,7 +166,7 @@ class Memory {
    * @param {API.FactsSelector} selector
    */
   facts({ entity, attribute, value }) {
-    const key = toKey([entity ?? null, attribute ?? null, value ?? null])
-    return this.model.index[key.toString()] ?? []
+    const key = toLink([entity ?? null, attribute ?? null, value ?? null])
+    return Object.values(this.model.index[key.toString()] ?? {})
   }
 }

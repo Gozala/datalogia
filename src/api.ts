@@ -225,6 +225,8 @@ export type Pattern = readonly [
   value: Term<Constant>,
 ]
 
+export type Is = readonly [binding: Term<Constant>, value: Term<Constant>]
+
 export type Clause = Variant<{
   // and clause
   And: Clause[]
@@ -238,6 +240,8 @@ export type Clause = Variant<{
   Form: MatchForm
   // rule application
   Rule: MatchRule
+  // assign bindings
+  Is: Is
 }>
 
 export type Frame = Record<PropertyKey, Term>
@@ -288,6 +292,7 @@ export interface FactsSelector {
 
 export type Instruction = Variant<{
   Associate: Fact
+  Disassociate: Fact
   Add: Instantiation
 }>
 
