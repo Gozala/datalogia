@@ -15,14 +15,14 @@ export const testAggregate = {
 
     const operand = DB.link()
     const same = rule({
-      match: {
+      select: {
         operand,
         modifier: operand,
       },
     })
 
     const Follower = rule({
-      match: { follower: follower, follows: follows },
+      select: { follower: follower, follows: follows },
       where: [{ Case: [follower, 'follows', follows] }],
     })
 
@@ -30,7 +30,7 @@ export const testAggregate = {
     const profile = DB.link()
     const c = DB.integer()
     const popularProfile = rule({
-      match: { id },
+      select: { id },
       where: [
         DB.match([id, 'profile', DB._]),
         Follower.match({ follower: profile, follows: id }),

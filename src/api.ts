@@ -298,7 +298,7 @@ export interface Transactor {
 }
 
 export interface Querier {
-  facts(selector?: FactsSelector): Iterable<Fact>
+  facts(selector?: FactsSelector): Fact[]
 }
 
 export type Constraint = Variant<{
@@ -405,21 +405,23 @@ export type Version = Variant<{
   New: {}
 }>
 
-export type Rule = DeductiveRule | InductiveRule
+export type Rule<Match extends Selector = Selector> =
+  | DeductiveRule<Match>
+  | InductiveRule<Match>
 
-export interface MatchRule {
+export interface MatchRule<Match extends Selector = Selector> {
   input: Selector
-  rule: Rule
+  rule?: Rule<Match>
 }
 
-export interface DeductiveRule {
-  match: Selector
+export interface DeductiveRule<Match extends Selector = Selector> {
+  select: Match
   // where: RulePredicate[]
   where: Clause
 }
 
-export interface InductiveRule {
-  match: Selector
+export interface InductiveRule<Match extends Selector = Selector> {
+  select: Match
   // where: RulePredicate[]
   where: Clause
 }
@@ -505,8 +507,10 @@ export type Confirmation = Variant<{
   error: Error
 }>
 
-export interface MatchForm {
-  confirm(bindings: Bindings): Confirmation
+export interface MatchForm<Variables extends Selector = Selector> {
+  selector: Variables
+
+  confirm(selector: Selector, bindings: Bindings): Confirmation
 }
 
 /**

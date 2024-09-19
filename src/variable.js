@@ -133,16 +133,21 @@ class Constraint {
    */
   constructor(model) {
     this.model = model
+    this.confirm = this.confirm.bind(this)
   }
   get Form() {
     return this
   }
+  get selector() {
+    return { variable: this.model.variable }
+  }
   /**
+   * @param {{variable: API.Variable<T>}} selector
    * @param {API.Bindings} bindings
    * @returns {API.Result<API.Unit, Error>}
    */
-  confirm(bindings) {
-    const value = Bindings.get(bindings, this.model.variable)
+  confirm(selector, bindings) {
+    const value = Bindings.get(bindings, selector.variable)
     if (value == null) {
       return { error: new RangeError(`Unbound variable`) }
     }
