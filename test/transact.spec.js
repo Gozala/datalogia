@@ -39,7 +39,10 @@ export const testTransact = {
     ]
 
     const db = DB.Memory.create()
-    await db.transact(ucans.map((ucan) => ({ Add: ucan })))
+    await DB.transact(
+      db,
+      ucans.map((ucan) => ({ Import: ucan }))
+    )
 
     const Capability = DB.entity({
       can: DB.string,

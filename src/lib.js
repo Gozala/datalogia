@@ -2,12 +2,10 @@ import * as API from './api.js'
 import * as Variable from './variable.js'
 import * as Rule from './rule.js'
 import * as Bindings from './bindings.js'
-import { entries } from './object.js'
 import { equal } from './constant.js'
 import * as Term from './term.js'
 import { dependencies } from './dsl.js'
 import * as Constraint from './constraint.js'
-import * as Clause from './clause.js'
 import * as Selector from './selector.js'
 import * as Task from './task.js'
 
@@ -35,6 +33,14 @@ export const { select } = Constraint
  * @param {Iterable<API.Clause>} source.where
  */
 export const query = (db, source) => Task.perform(evaluateQuery(db, source))
+
+/**
+ * @template {{}} Ok
+ * @param {API.Transactor<Ok>} db
+ * @param {API.Transaction} transaction
+ */
+export const transact = (db, transaction) =>
+  Task.perform(db.transact(transaction))
 
 /**
  * @template {API.Selector} Selection
@@ -307,12 +313,10 @@ const evaluateRule = function* (db, rule, frames) {
  * @param {API.Pattern} pattern
  */
 const iterateFacts = (db, [entity, attribute, value]) =>
-  Task.spawn(function* () {
-    return db.facts({
-      entity: Variable.is(entity) ? undefined : entity,
-      attribute: Variable.is(attribute) ? undefined : attribute,
-      value: Variable.is(value) ? undefined : value,
-    })
+  db.scan({
+    entity: Variable.is(entity) ? undefined : entity,
+    attribute: Variable.is(attribute) ? undefined : attribute,
+    value: Variable.is(value) ? undefined : value,
   })
 
 /**
@@ -320,7 +324,7 @@ const iterateFacts = (db, [entity, attribute, value]) =>
  * yields extended `frame` with values for all the pattern variables otherwise
  * yields no frames.
  *
- * @param {API.Fact} fact
+ * @param {API.Fact|API.Datum} fact
  * @param {API.Pattern} pattern
  * @param {API.Bindings} bindings
  */
@@ -334,7 +338,7 @@ const matchFact = function* (fact, pattern, bindings) {
 /**
  *
  * @param {API.Pattern} pattern
- * @param {API.Fact} fact
+ * @param {API.Fact|API.Datum} fact
  * @param {API.Bindings} bindings
  * @returns {API.Result<API.Bindings, Error>}
  */

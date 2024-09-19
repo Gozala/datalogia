@@ -10,18 +10,20 @@ export const entity = (source) => Link.of(source)
 
 /**
  * @param {Iterable<API.Fact|API.Instantiation>} source
- * @returns {API.Querier & API.Transactor}
+ * @returns {API.Querier & API.Transactor<{}>}
  */
 export const create = (source = []) => {
   const memory = new Memory()
+  const cause = version(memory.model)
   for (const entry of source) {
     if (Array.isArray(entry)) {
-      associate(memory, /** @type {API.Fact} */ (entry))
+      const fact = /** @type {API.Fact} */ (entry)
+      associate(memory, [...fact, cause])
     } else {
       for (const fact of Fact.derive(
         /** @type {API.Instantiation} */ (entry)
       )) {
-        associate(memory, fact)
+        associate(memory, [...fact, cause])
       }
     }
   }
@@ -41,25 +43,35 @@ export const toLink = ([entity, attribute, value]) =>
 export const toKey = (model) => toLink(model).toString()
 
 /**
- *
+ * @param {Model} model
+ * @param {API.FactsSelector} selector
+ * @returns {API.Task<API.Datum[], Error>}
+ */
+export const scan = function* (model, { entity, attribute, value }) {
+  const key = toLink([entity ?? null, attribute ?? null, value ?? null])
+  return Object.values(model.index[key.toString()] ?? {})
+}
+
+/**
  * @param {Model} model
  * @param {API.Transaction} transaction
- * @returns {API.Result<{}, Error>}
+ * @returns {API.Task<{}, Error>}
  */
-export const transact = (model, transaction) => {
+export const transact = function* (model, transaction) {
+  const cause = version(model)
   for (const instruction of transaction) {
-    if (instruction.Associate) {
-      associate(model, instruction.Associate)
-    } else if (instruction.Disassociate) {
-      dissociate(model, instruction.Disassociate)
-    } else if (instruction.Add) {
-      for (const fact of Fact.derive(instruction.Add)) {
-        associate(model, fact)
+    if (instruction.Assert) {
+      associate(model, [...instruction.Assert, cause])
+    } else if (instruction.Retract) {
+      dissociate(model, instruction.Retract)
+    } else if (instruction.Import) {
+      for (const fact of Fact.derive(instruction.Import)) {
+        associate(model, [...fact, cause])
       }
     }
   }
 
-  return { ok: model.data }
+  return model
 }
 
 /**
@@ -80,22 +92,27 @@ const toKeys = ([entity, attribute, value]) => [
 ]
 
 /**
+ * @param {Model} db
+ */
+export const version = ({ data }) => Link.of(data)
+
+/**
  * @typedef {object} Model
- * @property {Record<string, API.Fact>} data
- * @property {Record<string, Record<string, API.Fact>>} index
+ * @property {Record<string, API.Datum>} data
+ * @property {Record<string, Record<string, API.Datum>>} index
  *
  *
  * @param {Model} data
- * @param {API.Fact} fact
+ * @param {API.Datum} datum
  */
-const associate = ({ data, index }, fact) => {
-  const [entity, attribute, value] = fact
+const associate = ({ data, index }, datum) => {
+  const [entity, attribute, value] = datum
   // derive the fact identifier from the fact data
   const id = toKey([entity, attribute, value])
 
   // If the fact is not yet known we need to store it and index it.
   if (!(id in data)) {
-    data[id] = fact
+    data[id] = datum
 
     // We also index new fact by each of its components so that we can
     // efficiently query by entity, attribute or value.
@@ -104,11 +121,11 @@ const associate = ({ data, index }, fact) => {
     for (const key of keys) {
       // If we already have some facts in this index we add a new fact,
       // otherwise we create a new index.
-      const facts = index[key]
-      if (facts) {
-        facts[id] = fact
+      const store = index[key]
+      if (store) {
+        store[id] = datum
       } else {
-        index[key] = { [id]: fact }
+        index[key] = { [id]: datum }
       }
     }
   }
@@ -155,18 +172,21 @@ class Memory {
     return this.model.data
   }
 
+  get version() {
+    return version(this.model)
+  }
+
   /**
    * @param {API.Transaction} transaction
    */
-  async transact(transaction) {
+  transact(transaction) {
     return transact(this.model, transaction)
   }
 
   /**
    * @param {API.FactsSelector} selector
    */
-  facts({ entity, attribute, value }) {
-    const key = toLink([entity ?? null, attribute ?? null, value ?? null])
-    return Object.values(this.model.index[key.toString()] ?? {})
+  scan(selector) {
+    return scan(this, selector)
   }
 }
