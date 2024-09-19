@@ -152,6 +152,8 @@ export const evaluate = function* (db, query, frames = [{}]) {
     yield* evaluateForm(db, query.Form, frames)
   } else if (query.Rule) {
     yield* evaluateRule(db, query.Rule, frames)
+  } else if (query.Is) {
+    yield* evaluateIs(db, query.Is, frames)
   } else {
     const out = [...evaluateCase(db, query.Case, frames)]
     yield* out
@@ -235,7 +237,20 @@ export const evaluateOr = function* (db, disjuncts, frames) {
 }
 
 /**
- *
+ * @param {API.Querier} _
+ * @param {API.Clause['Is'] & {}} is
+ * @param {Iterable<API.Bindings>} frames
+ */
+export const evaluateIs = function* (_, [expect, actual], frames) {
+  for (const bindings of frames) {
+    const result = unifyMatch(expect, actual, bindings)
+    if (!result.error) {
+      yield result.ok
+    }
+  }
+}
+
+/**
  * @param {API.Querier} db
  * @param {API.Clause['Case'] & {}} pattern
  * @param {Iterable<API.Bindings>} frames

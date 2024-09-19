@@ -80,6 +80,14 @@ export const variables = function* (query) {
         yield binding
       }
     }
+  } else if (query.Is) {
+    const [entity, type] = query.Is
+    if (Variable.is(entity)) {
+      yield entity
+    }
+    if (Variable.is(type)) {
+      yield type
+    }
   } else {
     const [entity, attribute, value] = query.Case
     if (Variable.is(entity)) {
