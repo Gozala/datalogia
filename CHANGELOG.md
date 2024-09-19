@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.0](https://github.com/Gozala/datalogia/compare/v0.5.0...v0.6.0) (2024-09-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* async query and transaction interface ([#32](https://github.com/Gozala/datalogia/issues/32))
+
+### Features
+
+* async query and transaction interface ([#32](https://github.com/Gozala/datalogia/issues/32)) ([334dd6e](https://github.com/Gozala/datalogia/commit/334dd6e741ff226a4b37944175bab6a2141d3c04))
+* Make query return a task ([b7fb110](https://github.com/Gozala/datalogia/commit/b7fb110a3553f8865054311cb6fbd8230b249425))
+
 ## [0.5.0](https://github.com/Gozala/datalogia/compare/v0.4.0...v0.5.0) (2024-09-19)
 
 
