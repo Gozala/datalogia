@@ -2,13 +2,12 @@ import * as API from './api.js'
 import * as Variable from './variable.js'
 import * as Rule from './rule.js'
 import * as Bindings from './bindings.js'
-import { entries } from './object.js'
 import { equal } from './constant.js'
 import * as Term from './term.js'
 import { dependencies } from './dsl.js'
 import * as Constraint from './constraint.js'
-import * as Clause from './clause.js'
 import * as Selector from './selector.js'
+import * as Task from './task.js'
 
 export * as Variable from './variable.js'
 export * from './api.js'
@@ -17,8 +16,7 @@ export * from './dsl.js'
 export * as Constant from './constant.js'
 export { and, or, match, not } from './clause.js'
 export { rule } from './rule.js'
-export { Rule }
-export { API }
+export { Rule, Task, API }
 
 const ENTITY = 0
 const ATTRIBUTE = 1
@@ -33,9 +31,26 @@ export const { select } = Constraint
  * @param {object} source
  * @param {Selection} source.select
  * @param {Iterable<API.Clause>} source.where
- * @returns {API.InferBindings<Selection>[]}
  */
-export const query = (db, { select, where }) => {
+export const query = (db, source) => Task.perform(evaluateQuery(db, source))
+
+/**
+ * @template {{}} Ok
+ * @param {API.Transactor<Ok>} db
+ * @param {API.Transaction} transaction
+ */
+export const transact = (db, transaction) =>
+  Task.perform(db.transact(transaction))
+
+/**
+ * @template {API.Selector} Selection
+ * @param {API.Querier} db
+ * @param {object} source
+ * @param {Selection} source.select
+ * @param {Iterable<API.Clause>} source.where
+ * @returns {Task.Task<API.InferBindings<Selection>[] , Error>}
+ */
+function* evaluateQuery(db, { select, where }) {
   const clauses = []
 
   // Flatten all the `And` clauses.
@@ -88,11 +103,13 @@ export const query = (db, { select, where }) => {
     }
   }
 
-  const matches = evaluate(db, {
+  const matches = yield* evaluate(db, {
     And: clauses.sort(byClause),
   })
 
-  return [...matches].map((match) => Selector.select(select, match))
+  const selection = [...matches].map((match) => Selector.select(select, match))
+
+  return selection
 }
 
 /**
@@ -139,24 +156,23 @@ const rateClause = (clause) => {
  * @param {API.Querier} db
  * @param {API.Clause} query
  * @param {Iterable<API.Bindings>} frames
- * @returns {Iterable<API.Bindings>}
+ * @returns {Task.Task<Iterable<API.Bindings>, Error>}
  */
 export const evaluate = function* (db, query, frames = [{}]) {
   if (query.Or) {
-    yield* evaluateOr(db, query.Or, frames)
+    return yield* evaluateOr(db, query.Or, frames)
   } else if (query.And) {
-    yield* evaluateAnd(db, query.And, frames)
+    return yield* evaluateAnd(db, query.And, frames)
   } else if (query.Not) {
-    yield* evaluateNot(db, query.Not, frames)
+    return yield* evaluateNot(db, query.Not, frames)
   } else if (query.Form) {
-    yield* evaluateForm(db, query.Form, frames)
+    return yield* evaluateForm(db, query.Form, frames)
   } else if (query.Rule) {
-    yield* evaluateRule(db, query.Rule, frames)
+    return yield* evaluateRule(db, query.Rule, frames)
   } else if (query.Is) {
-    yield* evaluateIs(db, query.Is, frames)
+    return yield* evaluateIs(db, query.Is, frames)
   } else {
-    const out = [...evaluateCase(db, query.Case, frames)]
-    yield* out
+    return yield* evaluateCase(db, query.Case, frames)
   }
 }
 
@@ -170,10 +186,10 @@ export const evaluate = function* (db, query, frames = [{}]) {
  */
 export const evaluateAnd = function* (db, conjuncts, frames) {
   for (const query of conjuncts) {
-    frames = evaluate(db, query, frames)
+    frames = yield* evaluate(db, query, frames)
   }
 
-  yield* frames
+  return frames
 }
 
 /**
@@ -183,11 +199,13 @@ export const evaluateAnd = function* (db, conjuncts, frames) {
  * @param {Iterable<API.Bindings>} frames
  */
 export const evaluateNot = function* (db, operand, frames) {
+  const matches = []
   for (const frame of frames) {
-    if (isEmpty(evaluate(db, operand, [frame]))) {
-      yield frame
+    if (isEmpty(yield* evaluate(db, operand, [frame]))) {
+      matches.push(frame)
     }
   }
+  return matches
 }
 
 /**
@@ -203,11 +221,13 @@ export const evaluateNot = function* (db, operand, frames) {
  * @param {Iterable<API.Bindings>} frames
  */
 export const evaluateForm = function* (db, form, frames) {
+  const matches = []
   for (const bindings of frames) {
     if (form.confirm(form.selector, bindings).ok) {
-      yield bindings
+      matches.push(bindings)
     }
   }
+  return matches
 }
 
 /**
@@ -231,9 +251,12 @@ export const evaluateOr = function* (db, disjuncts, frames) {
   // We copy iterable here because first disjunct will consume all the frames
   // and subsequent ones will not have any frames to work with otherwise.
   frames = [...frames]
+  const matches = []
   for (const query of disjuncts) {
-    yield* evaluate(db, query, frames)
+    const bindings = yield* evaluate(db, query, frames)
+    matches.push(...bindings)
   }
+  return matches
 }
 
 /**
@@ -242,12 +265,14 @@ export const evaluateOr = function* (db, disjuncts, frames) {
  * @param {Iterable<API.Bindings>} frames
  */
 export const evaluateIs = function* (_, [expect, actual], frames) {
+  const matches = []
   for (const bindings of frames) {
     const result = unifyMatch(expect, actual, bindings)
     if (!result.error) {
-      yield result.ok
+      matches.push(result.ok)
     }
   }
+  return matches
 }
 
 /**
@@ -258,12 +283,14 @@ export const evaluateIs = function* (_, [expect, actual], frames) {
 
 const evaluateCase = function* (db, pattern, frames) {
   // We collect facts to avoid reaching for the db on each frame.
-  const facts = [...iterateFacts(db, pattern)]
+  const facts = yield* iterateFacts(db, pattern)
+  const matches = []
   for (const bindings of frames) {
     for (const fact of facts) {
-      yield* matchFact(fact, pattern, bindings)
+      matches.push(...matchFact(fact, pattern, bindings))
     }
   }
+  return matches
 }
 
 /**
@@ -273,9 +300,12 @@ const evaluateCase = function* (db, pattern, frames) {
  * @param {Iterable<API.Bindings>} frames
  */
 const evaluateRule = function* (db, rule, frames) {
-  for (const bindings of frames) {
-    yield* matchRule(db, rule, bindings)
+  const matches = []
+  for (const frame of frames) {
+    const bindings = yield* matchRule(db, rule, frame)
+    matches.push(...bindings)
   }
+  return matches
 }
 
 /**
@@ -283,7 +313,7 @@ const evaluateRule = function* (db, rule, frames) {
  * @param {API.Pattern} pattern
  */
 const iterateFacts = (db, [entity, attribute, value]) =>
-  db.facts({
+  db.scan({
     entity: Variable.is(entity) ? undefined : entity,
     attribute: Variable.is(attribute) ? undefined : attribute,
     value: Variable.is(value) ? undefined : value,
@@ -294,7 +324,7 @@ const iterateFacts = (db, [entity, attribute, value]) =>
  * yields extended `frame` with values for all the pattern variables otherwise
  * yields no frames.
  *
- * @param {API.Fact} fact
+ * @param {API.Fact|API.Datum} fact
  * @param {API.Pattern} pattern
  * @param {API.Bindings} bindings
  */
@@ -308,7 +338,7 @@ const matchFact = function* (fact, pattern, bindings) {
 /**
  *
  * @param {API.Pattern} pattern
- * @param {API.Fact} fact
+ * @param {API.Fact|API.Datum} fact
  * @param {API.Bindings} bindings
  * @returns {API.Result<API.Bindings, Error>}
  */
@@ -386,17 +416,20 @@ export const matchVariable = (variable, value, bindings) => {
  * @param {API.Bindings} bindings
  */
 const matchRule = function* (db, rule, bindings) {
+  const matches = []
   if (rule.rule) {
     const { match, where } = Rule.setup(rule.rule)
 
     // Unify passed rule bindings with the rule match pattern.
     const result = unifyRule(rule.input, match, bindings)
     if (!result.error) {
-      yield* evaluate(db, where, [result.ok])
+      const bindings = yield* evaluate(db, where, [result.ok])
+      matches.push(...bindings)
     }
   } else {
-    yield bindings
+    matches.push(bindings)
   }
+  return matches
 }
 
 /**

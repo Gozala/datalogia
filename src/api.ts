@@ -1,6 +1,7 @@
 import { ByteView, Link as IPLDLink } from 'multiformats'
+import { Task } from './task.js'
 
-export type { ByteView }
+export type { ByteView, Task }
 
 /**
  * Generic reader interface that can be used to read `O` value form the
@@ -266,6 +267,17 @@ export type Fact = readonly [
 ]
 
 /**
+ * An atomic {@link Fact} with a `cause` field providing a causal relationship
+ * that acts like timestamp.
+ */
+export type Datum = readonly [
+  entity: Entity,
+  attribute: Attribute,
+  value: Constant,
+  cause: Entity,
+]
+
+/**
  * Set of {@link Fact}s associating several attributes with the same new entity.
  * Each key represents an `attribute` and corresponding value represents it's
  * `value`.
@@ -291,19 +303,19 @@ export interface FactsSelector {
 }
 
 export type Instruction = Variant<{
-  Associate: Fact
-  Disassociate: Fact
-  Add: Instantiation
+  Assert: Fact
+  Retract: Fact
+  Import: Instantiation
 }>
 
 export interface Transaction extends Iterable<Instruction> {}
 
-export interface Transactor {
-  transact(transaction: Transaction): Promise<Result<{}, Error>>
+export interface Transactor<Ok extends {} = {}> {
+  transact(transaction: Transaction): Task<Ok, Error>
 }
 
 export interface Querier {
-  facts(selector?: FactsSelector): Fact[]
+  scan(selector?: FactsSelector): Task<Datum[], Error>
 }
 
 export type Constraint = Variant<{

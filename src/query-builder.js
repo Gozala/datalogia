@@ -74,7 +74,6 @@ class Query {
   /**
    *
    * @param {API.Querier} db
-   * @returns {API.InferBindings<Selection>[]}
    */
   execute(db) {
     return query(db, this.model)

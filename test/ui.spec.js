@@ -34,7 +34,7 @@ export const testBasic = {
     const input = DB.string()
     const title = DB.string()
 
-    const matches = DB.query(db, {
+    const matches = await DB.query(db, {
       select: {
         self,
         item: { title },
