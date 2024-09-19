@@ -42,7 +42,7 @@ export const testRecursion = {
 
     const name = DB.string()
 
-    const matches = DB.query(db, {
+    const matches = await DB.query(db, {
       select: {
         id: each,
         name,

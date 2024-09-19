@@ -6,14 +6,14 @@ import { startsWith } from '../src/constraint.js'
  * @type {import('entail').Suite}
  */
 export const testMore = {
-  'test facts': (assert) => {
+  'test facts': async (assert) => {
     const Employee = DB.entity({
       name: DB.string,
       job: DB.string,
     })
 
     const employee = new Employee()
-    const result = DB.query(testDB, {
+    const result = await DB.query(testDB, {
       select: {
         name: employee.name,
       },
@@ -25,7 +25,7 @@ export const testMore = {
     ])
 
     assert.deepEqual(
-      DB.query(testDB, {
+      await DB.query(testDB, {
         select: {
           name: employee.name,
           job: employee.job,
@@ -44,7 +44,7 @@ export const testMore = {
       ]
     )
   },
-  'test supervisor': (assert) => {
+  'test supervisor': async (assert) => {
     const Supervisor = DB.entity({
       name: DB.string,
       salary: DB.link,
@@ -59,7 +59,7 @@ export const testMore = {
     const employee = new Employee()
     const supervisor = new Supervisor()
 
-    const result = DB.query(testDB, {
+    const result = await DB.query(testDB, {
       select: {
         employee: employee.name,
         supervisor: supervisor.name,
@@ -78,7 +78,7 @@ export const testMore = {
       { employee: 'Aull DeWitt', supervisor: 'Warbucks Oliver' },
     ])
   },
-  'test salary': (assert) => {
+  'test salary': async (assert) => {
     const Employee = DB.entity({
       name: DB.string,
       salary: DB.integer,
@@ -94,7 +94,7 @@ export const testMore = {
       where: [employee.salary.greater(30_000)],
     }
 
-    const result = DB.query(testDB, query)
+    const result = await DB.query(testDB, query)
 
     assert.deepEqual(result, [
       { name: 'Bitdiddle Ben', salary: 60_000 },
@@ -104,7 +104,7 @@ export const testMore = {
       { name: 'Scrooge Eben', salary: 75_000 },
     ])
     assert.deepEqual(
-      DB.query(testDB, {
+      await DB.query(testDB, {
         select: {
           name: employee.name,
           salary: employee.salary,
@@ -119,7 +119,7 @@ export const testMore = {
       ]
     )
   },
-  'test address': (assert) => {
+  'test address': async (assert) => {
     const Employee = DB.entity({
       name: DB.string,
       address: DB.string,
@@ -137,12 +137,12 @@ export const testMore = {
       ],
     }
 
-    assert.deepEqual(DB.query(testDB, whoLivesInCambridge), [
+    assert.deepEqual(await DB.query(testDB, whoLivesInCambridge), [
       { name: 'Hacker Alyssa P', address: 'Campridge, Mass Ave 78' },
       { name: 'Fect Cy D', address: 'Campridge, Ames Street 3' },
     ])
   },
-  'test employee with non comp supervisor ': (assert) => {
+  'test employee with non comp supervisor ': async (assert) => {
     const Employee = DB.entity({
       name: DB.string,
       supervisor: DB.string,
@@ -153,7 +153,7 @@ export const testMore = {
     const supervisor = new Employee()
 
     assert.deepEqual(
-      DB.query(testDB, {
+      await DB.query(testDB, {
         select: {
           employee: employee.name,
           supervisor: supervisor.name,

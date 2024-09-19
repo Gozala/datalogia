@@ -18,7 +18,7 @@ export const testDB = {
     const uploadAdd = DB.link()
     const storeAdd = DB.link()
 
-    const result = DB.query(proofsDB, {
+    const result = await DB.query(proofsDB, {
       select: {
         uploadCID,
         storeCID,
@@ -59,7 +59,7 @@ export const testDB = {
     const e = DB.link()
 
     assert.deepEqual(
-      DB.query(db, {
+      await DB.query(db, {
         select: { e },
         where: [DB.match([e, 'age', 42])],
       }),
@@ -68,7 +68,7 @@ export const testDB = {
 
     const x = DB.string()
     assert.deepEqual(
-      DB.query(db, {
+      await DB.query(db, {
         select: { x },
         where: [DB.match([DB._, 'likes', x])],
       }),
@@ -76,7 +76,7 @@ export const testDB = {
     )
   },
 
-  'sketch pull pattern': (assert) => {
+  'sketch pull pattern': async (assert) => {
     const Person = DB.entity({
       'person/name': DB.string,
     })
@@ -92,7 +92,7 @@ export const testDB = {
     const actor = new Person()
 
     assert.deepEqual(
-      DB.query(moviesDB, {
+      await DB.query(moviesDB, {
         select: {
           director: director['person/name'],
           movie: movie['movie/title'],
@@ -116,7 +116,7 @@ export const testDB = {
     )
 
     assert.deepEqual(
-      DB.query(moviesDB, {
+      await DB.query(moviesDB, {
         select: {
           director: director['person/name'],
           movie: movie['movie/title'],
@@ -145,7 +145,7 @@ export const testDB = {
     const directorName = DB.string()
     const movieTitle = DB.string()
 
-    const matches = DB.query(moviesDB, {
+    const matches = await DB.query(moviesDB, {
       select: {
         director: directorName,
         movie: movieTitle,
@@ -177,7 +177,7 @@ export const testDB = {
   'test facts': async (assert) => {
     const id = DB.link()
     const name = DB.string()
-    const matches = DB.query(employeeDB, {
+    const matches = await DB.query(employeeDB, {
       select: {
         name,
       },
@@ -198,7 +198,7 @@ export const testDB = {
     const supervisorName = DB.string()
     const employee = DB.link()
     const employeeName = DB.string()
-    const matches = DB.query(employeeDB, {
+    const matches = await DB.query(employeeDB, {
       select: {
         employee: employeeName,
         supervisor: supervisorName,
@@ -232,7 +232,7 @@ export const testDB = {
       salary: DB.integer(),
     }
 
-    const matches = DB.query(employeeDB, {
+    const matches = await DB.query(employeeDB, {
       select: {
         name: employee.name,
         salary: employee.salary,
@@ -255,7 +255,7 @@ export const testDB = {
       ]
     )
 
-    const matches2 = DB.query(employeeDB, {
+    const matches2 = await DB.query(employeeDB, {
       select: {
         name: employee.name,
         salary: employee.salary,
@@ -291,7 +291,7 @@ export const testDB = {
       name: DB.string(),
     }
 
-    const matches = DB.query(employeeDB, {
+    const matches = await DB.query(employeeDB, {
       select: {
         name: employee.name,
         supervisor: supervisor.name,
@@ -337,7 +337,7 @@ export const testDB = {
     }
 
     // finds all people supervised by Ben Bitdiddle who are not computer programmers
-    const matches = DB.query(employeeDB, {
+    const matches = await DB.query(employeeDB, {
       select: {
         name: employee.name,
       },

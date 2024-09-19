@@ -24,7 +24,7 @@ export const testSelector = {
       space,
     }
 
-    const result = DB.query(proofsDB, {
+    const result = await DB.query(proofsDB, {
       select: {
         upload: {
           cid: upload.cid,
@@ -77,7 +77,7 @@ export const testSelector = {
       space,
     }
 
-    const result = DB.query(proofsDB, {
+    const result = await DB.query(proofsDB, {
       select: {
         result: {
           upload: {
@@ -135,7 +135,7 @@ export const testSelector = {
       space,
     }
 
-    const result = DB.query(proofsDB, {
+    const result = await DB.query(proofsDB, {
       select: {
         result: [
           {

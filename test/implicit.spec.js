@@ -15,7 +15,7 @@ export const testImplicit = {
     const expiration = DB.integer()
     const revoked = DB._
 
-    const result = DB.query(proofsDB, {
+    const result = await DB.query(proofsDB, {
       select: {
         space,
         can,
