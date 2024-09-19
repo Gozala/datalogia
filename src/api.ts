@@ -228,6 +228,19 @@ export type Pattern = readonly [
 
 export type Is = readonly [binding: Term<Constant>, value: Term<Constant>]
 
+export interface AggregateForm<In extends Constant, Out> {
+  source: Term<In>
+  target: Variable<Out>
+
+  aggregator: Aggregator<In, Out, unknown>
+}
+
+export interface Aggregator<In, Out, State> {
+  init(): State
+  step(state: State, value: In): State
+  end(state: State): Out
+}
+
 export type Clause = Variant<{
   // and clause
   And: Clause[]
@@ -243,6 +256,8 @@ export type Clause = Variant<{
   Rule: MatchRule
   // assign bindings
   Is: Is
+  // Aggregate bindings
+  Aggregate: AggregateForm
 }>
 
 export type Frame = Record<PropertyKey, Term>
