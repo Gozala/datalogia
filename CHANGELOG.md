@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.5.0](https://github.com/Gozala/datalogia/compare/v0.4.0...v0.5.0) (2024-09-19)
+
+
+### Features
+
+* implement is operator ([a19489c](https://github.com/Gozala/datalogia/commit/a19489c4b029c1f2de0e28c2c89be85298c396b7))
+* implement is operator ([#31](https://github.com/Gozala/datalogia/issues/31)) ([d0d25c4](https://github.com/Gozala/datalogia/commit/d0d25c4e258adb008ff00ea4a35956b167dbee5b))
+* implement recursive rule support ([7865ff7](https://github.com/Gozala/datalogia/commit/7865ff731edb01d03281d5e29fed0a4563967927))
+* implement support for recursion ([87ccb67](https://github.com/Gozala/datalogia/commit/87ccb67ff56a666feee134771eb8ecf18dc48a0d))
+* recursion ([#27](https://github.com/Gozala/datalogia/issues/27)) ([52ad2a4](https://github.com/Gozala/datalogia/commit/52ad2a4bbab48eb8955c68ae97728a73154cf0e8))
+
+
+### Bug Fixes
+
+* code paths that required updates ([611aa75](https://github.com/Gozala/datalogia/commit/611aa75182cc32c3264c53d22f2e1b139a85e17e))
+
 ## [0.4.0](https://github.com/Gozala/datalogia/compare/v0.3.1...v0.4.0) (2024-02-07)
 
 
