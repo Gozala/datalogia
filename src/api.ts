@@ -502,9 +502,10 @@ export type BindingKey = Variant<{
  */
 // export interface Selector
 //   extends Record<PropertyKey, Term | Term[] | Selector | Selector[]> {}
-export type Selector = PositionalSelector | NamedSelector
+export type Selector = AggregateSelector | NamedSelector
 
-export interface PositionalSelector extends Array<Selector | Term> {}
+export type AggregateSelector = [Selector | Term]
+
 export interface NamedSelector extends Record<PropertyKey, Selector | Term> {}
 
 export interface Variables extends Record<PropertyKey, Term> {}

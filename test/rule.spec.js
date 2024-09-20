@@ -30,13 +30,7 @@ export const testRules = {
 
     assert.deepEqual(
       [...matches],
-      [
-        { name: 'Bitdiddle Ben' },
-        { name: 'Warbucks Oliver' },
-        { name: 'Warbucks Oliver' },
-        { name: 'Warbucks Oliver' },
-        { name: 'Warbucks Oliver' },
-      ]
+      [{ name: 'Bitdiddle Ben' }, { name: 'Warbucks Oliver' }]
     )
   },
 

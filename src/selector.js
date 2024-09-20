@@ -8,13 +8,57 @@ import * as Bindings from './bindings.js'
  * @template {API.Selector} Selector
  * @param {Selector} selector
  * @param {API.Bindings} bindings
+ * @param {API.InferBindings<Selector>} base
+ * @returns {API.InferBindings<Selector>|null}
+ */
+export const merge = (selector, bindings, base) => {
+  if (Array.isArray(selector)) {
+    const [term] = selector
+    return /** @type {API.InferBindings<Selector>} */ ([
+      .../** @type {unknown[]} */ (base),
+      Term.is(term) ? Bindings.get(bindings, term) : select(term, bindings),
+    ])
+  } else {
+    const entries = []
+    for (const [key, term] of Object.entries(selector)) {
+      const id = /** @type {keyof API.InferBindings<Selector>} */ (key)
+      if (Term.is(term)) {
+        const value = /** @type {API.Constant} */ (Bindings.get(bindings, term))
+        if (value === null) {
+          return null
+        } else {
+          if (Constant.equal(/** @type {API.Constant} */ (base[id]), value)) {
+            entries.push([key, value])
+          } else {
+            return null
+          }
+        }
+      } else {
+        const value = merge(term, bindings, /** @type {any} */ (base[id]))
+        if (value === null) {
+          return null
+        } else {
+          entries.push([key, value])
+        }
+      }
+    }
+    return Object.fromEntries(entries)
+  }
+}
+
+/**
+ * @template {API.Selector} Selector
+ * @param {Selector} selector
+ * @param {API.Bindings} bindings
  * @returns {API.InferBindings<Selector>}
  */
 export const select = (selector, bindings) =>
   Array.isArray(selector)
-    ? selector.map((term) =>
-        Term.is(term) ? Bindings.get(bindings, term) : select(term, bindings)
-      )
+    ? [
+        Term.is(selector[0])
+          ? Bindings.get(bindings, selector[0])
+          : select(selector[0], bindings),
+      ]
     : Object.fromEntries(
         Object.entries(selector).map(([key, term]) => {
           if (Term.is(term)) {
