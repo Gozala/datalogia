@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.0](https://github.com/Gozala/datalogia/compare/v0.6.0...v0.7.0) (2024-09-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* aggregatation ([#30](https://github.com/Gozala/datalogia/issues/30))
+
+### Features
+
+* aggregatation ([#30](https://github.com/Gozala/datalogia/issues/30)) ([c4da5ff](https://github.com/Gozala/datalogia/commit/c4da5ff5c895de3858f859aafee814e250550e9a))
+* implement basic aggregation ([d8fc867](https://github.com/Gozala/datalogia/commit/d8fc8671f03432103200a211b3b902f1b3604dd7))
+
 ## [0.6.0](https://github.com/Gozala/datalogia/compare/v0.5.0...v0.6.0) (2024-09-19)
 
 
