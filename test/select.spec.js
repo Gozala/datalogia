@@ -137,16 +137,16 @@ export const testSelector = {
 
     const result = await DB.query(proofsDB, {
       select: {
-        result: [
-          {
+        result: {
+          upload: {
             cid: upload.cid,
             space: upload.space,
           },
-          {
+          store: {
             cid: store.cid,
             space: store.space,
           },
-        ],
+        },
       },
       where: [
         DB.match([upload.ucan, 'cid', upload.cid]),
@@ -163,16 +163,16 @@ export const testSelector = {
 
     assert.deepEqual(result, [
       {
-        result: [
-          {
+        result: {
+          upload: {
             cid: 'bafy...upload',
             space: 'did:key:zAlice',
           },
-          {
+          store: {
             cid: 'bafy...store',
             space: 'did:key:zAlice',
           },
-        ],
+        },
       },
     ])
   },

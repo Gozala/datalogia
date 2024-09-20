@@ -2,7 +2,7 @@ import * as API from './api.js'
 import * as Variable from './variable.js'
 import * as Rule from './rule.js'
 import * as Bindings from './bindings.js'
-import { equal } from './constant.js'
+import { equal, Link } from './constant.js'
 import * as Term from './term.js'
 import { dependencies } from './dsl.js'
 import * as Constraint from './constraint.js'
@@ -16,7 +16,7 @@ export * from './dsl.js'
 export * as Constant from './constant.js'
 export { and, or, match, not } from './clause.js'
 export { rule } from './rule.js'
-export { Rule, Task, API }
+export { Rule, Task, API, Link }
 
 const ENTITY = 0
 const ATTRIBUTE = 1
@@ -103,11 +103,32 @@ function* evaluateQuery(db, { select, where }) {
     }
   }
 
-  const matches = yield* evaluate(db, {
+  const frames = yield* evaluate(db, {
     And: clauses.sort(byClause),
   })
 
-  const selection = [...matches].map((match) => Selector.select(select, match))
+  /** @type {API.InferBindings<Selection>[]} */
+  const selection = []
+  for (const frame of frames) {
+    if (selection.length === 0) {
+      selection.push(Selector.select(select, frame))
+    } else {
+      let joined = false
+      for (const [offset, match] of selection.entries()) {
+        const merged = Selector.merge(select, frame, match)
+        if (merged) {
+          selection[offset] = merged
+          joined = true
+        }
+      }
+
+      if (!joined) {
+        selection.push(Selector.select(select, frame))
+      }
+    }
+  }
+
+  // const selection = [...matches].map((match) => Selector.select(select, match))
 
   return selection
 }
