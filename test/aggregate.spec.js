@@ -100,4 +100,30 @@ export const testAggregate = {
         },
       ])
     }),
+
+  'aggregate 0 items': (assert) =>
+    Task.spawn(function* () {
+      const groceries = DB.Link.of({ name: 'Groceries' })
+      const db = DB.Memory.create([[groceries, 'name', 'Groceries']])
+
+      const list = DB.link()
+      const item = DB.link()
+      const title = DB.string()
+      const name = DB.string()
+      const todo = DB.variable()
+
+      const match = yield* DB.query(db, {
+        select: {
+          name,
+          item: [{ todo: item, title }],
+        },
+        where: [
+          DB.match([list, 'name', name]),
+          DB.match([list, 'todo', item]),
+          DB.match([item, 'title', title]),
+        ],
+      })
+
+      assert.deepEqual(match, [{ name: 'Groceries', item: [] }])
+    }),
 }
