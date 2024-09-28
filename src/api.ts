@@ -213,10 +213,10 @@ export type VariableVariant = Variant<{
 
 /**
  * Describes association between `entity`, `attribute`, `value` of the
- * {@link Fact}. Each component of the {@link Relation} is a {@link Term}
+ * {@link Fact}. Each component of the {@link _Relation} is a {@link Term}
  * that is either a constant or a {@link Variable}.
  *
- * Query engine during execution will attempt to match {@link Relation} against
+ * Query engine during execution will attempt to match {@link _Relation} against
  * all facts in the database and unify {@link Variable}s across them to identify
  * all possible solutions.
  */
@@ -237,6 +237,9 @@ export type Clause = Variant<{
   Not: Clause
   // pattern match a fact
   Case: Pattern
+
+  Match: Relation
+
   // match aggregated bindings
   Form: MatchForm
   // rule application
@@ -244,6 +247,59 @@ export type Clause = Variant<{
   // assign bindings
   Is: Is
 }>
+
+export type Terms = Record<string, Term> | Term[] | Term
+
+export type Numeric = Int32 | Int64 | Float32
+
+export type Relation =
+  | readonly [Term, 'type', Term]
+  | readonly [Term, '@', Term]
+  | readonly [Term, '==', Term]
+  // | [Term<Numeric>, 'math/negate', Term<Numeric>]
+  // | [Term<Numeric>, 'math/absolute', Term<Numeric>]
+  | [Term, 'string/length', Term]
+  | [Term, 'string/words', Term]
+  | [Term, 'string/lines', Term]
+  | [Term, 'string/case/upper', Term]
+  | [Term, 'string/case/lower', Term]
+  | [Term, 'string/trim', Term]
+  | [Term, 'string/trim/start', Term]
+  | [Term, 'string/trim/end', Term]
+  | [Term, 'string/from/utf8', Term]
+  | [Term, 'string/to/utf8', Term]
+  | [Term[], 'string/concat', Term]
+// | [Term<Numeric>[], '+', Term<Numeric>]
+// | [Term<Numeric>[], '-', Term<Numeric>]
+// | [Term<Numeric>[], '*', Term<Numeric>]
+// | [Term<Numeric>[], '/', Term<Numeric>]
+// | [Term<Numeric>[], '%', Term<Numeric>]
+// | [Term<Numeric>, '**', Term<Numeric>]
+// | RelationFormula
+
+export type RelationFormula<
+  In extends Terms = Terms,
+  Out extends Terms = Terms,
+> = [
+  input: In,
+  formula: (input: InferTerms<In>) => InferTerms<Out>,
+  output: Out,
+]
+
+export type InferTerms<T extends Terms> = T extends Term<infer U>
+  ? U
+  : T extends Term<infer U>[]
+    ? U[]
+    : T extends Record<string, Term>
+      ? { [Key in keyof T]: T[Key] extends Term<infer U> ? U : never }
+      : never
+
+export type Compare<T extends Constant> =
+  | [Term<T>, '<', Term<T>]
+  | [Term<T>, '>', Term<T>]
+  | [Term<T>, '<=', Term<T>]
+  | [Term<T>, '>=', Term<T>]
+  | [Term<T>, '!=', Term<T>]
 
 export type Frame = Record<PropertyKey, Term>
 
@@ -345,7 +401,7 @@ export type Operation = Variant<{
 export interface Select<Rows extends Selector = Selector> {
   relationKey: RelationKey
   rows: Rows
-  relation: Relation
+  relation: _Relation
   formulae: Formula[]
 }
 
@@ -360,7 +416,7 @@ export interface Select<Rows extends Selector = Selector> {
 export interface Search {
   relationKey: RelationKey
   alias?: AliasID
-  relation: Relation
+  relation: _Relation
 
   variables: Variables
   when: Formula[]
@@ -386,7 +442,7 @@ export interface Accumulate<
 
   id: RelationID
   alias?: AliasID
-  relation: Relation
+  relation: _Relation
   when: Formula[]
   operation: Operation
 }
@@ -405,7 +461,7 @@ export interface Equality {
 export interface NotIn<Rows extends Variables = Variables> {
   relationKey: RelationKey
   rows: Rows
-  relation: Relation
+  relation: _Relation
 }
 
 export interface Predicate<Variables extends Selector = Selector> {
@@ -567,7 +623,7 @@ export interface Declaration<Schema extends Rows = Rows> {
 
   source: Source
 
-  relation: Relation
+  relation: _Relation
 }
 
 export type Source = Variant<{
@@ -575,7 +631,7 @@ export type Source = Variant<{
   Idb: {}
 }>
 
-export interface Relation {
+export interface _Relation {
   length: number
   isEmpty(): boolean
   contains(bindings: Bindings): boolean
@@ -583,7 +639,7 @@ export interface Relation {
 
   purge(): void
   insert(bindings: Bindings, instance: Association): void
-  merge(relation: Relation): void
+  merge(relation: _Relation): void
 }
 
 export interface Table<Schema extends Rows = Rows> {
@@ -699,21 +755,21 @@ export interface Merge {
   fromKey: RelationKey
   intoKey: RelationKey
 
-  from: Relation
-  into: Relation
+  from: _Relation
+  into: _Relation
 }
 
 export interface Swap {
   fromKey: RelationKey
   intoKey: RelationKey
 
-  from: Relation
-  into: Relation
+  from: _Relation
+  into: _Relation
 }
 
 export interface Purge {
   relationKey: RelationKey
-  relation: Relation
+  relation: _Relation
 }
 
 export interface Loop {
