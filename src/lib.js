@@ -8,7 +8,7 @@ import { dependencies } from './dsl.js'
 import * as Constraint from './constraint.js'
 import * as Selector from './selector.js'
 import * as Task from './task.js'
-
+import * as Relation from './relation.js'
 export * as Variable from './variable.js'
 export * from './api.js'
 export * as Memory from './memory.js'
@@ -192,8 +192,12 @@ export const evaluate = function* (db, query, frames = [{}]) {
     return yield* evaluateRule(db, query.Rule, frames)
   } else if (query.Is) {
     return yield* evaluateIs(db, query.Is, frames)
-  } else {
+  } else if (query.Case) {
     return yield* evaluateCase(db, query.Case, frames)
+  } else if (query.Match) {
+    return yield* Relation.evaluate(db, query.Match, frames)
+  } else {
+    throw new Error(`Unsupported query kind ${Object.keys(query)[0]}`)
   }
 }
 
@@ -288,7 +292,7 @@ export const evaluateOr = function* (db, disjuncts, frames) {
 export const evaluateIs = function* (_, [expect, actual], frames) {
   const matches = []
   for (const bindings of frames) {
-    const result = unifyMatch(expect, actual, bindings)
+    const result = Bindings.unify(expect, actual, bindings)
     if (!result.error) {
       matches.push(result.ok)
     }
@@ -364,70 +368,14 @@ const matchFact = function* (fact, pattern, bindings) {
  * @returns {API.Result<API.Bindings, Error>}
  */
 const matchPattern = (pattern, [entity, attribute, value], bindings) => {
-  let result = matchTerm(pattern[ENTITY], entity, bindings)
+  let result = Term.match(pattern[ENTITY], entity, bindings)
   result = result.error
     ? result
-    : matchTerm(pattern[ATTRIBUTE], attribute, result.ok)
+    : Term.match(pattern[ATTRIBUTE], attribute, result.ok)
 
-  result = result.error ? result : matchTerm(pattern[VALUE], value, result.ok)
+  result = result.error ? result : Term.match(pattern[VALUE], value, result.ok)
 
   return result
-}
-
-/**
- * Attempts to match given `term` against the given fact `value`, if `value`
- * matches the term returns succeeds with extended `frame` otherwise returns
- * an error.
- *
- * @param {API.Term} term
- * @param {API.Constant} value
- * @param {API.Bindings} bindings
- * @returns {API.Result<API.Bindings, Error>}
- */
-const matchTerm = (term, value, bindings) =>
-  // We have a special `_` variable that matches anything. Unlike all other
-  // variables it is not unified across all the relations which is why we treat
-  // it differently and do add no bindings for it.
-  Term.isBlank(term)
-    ? { ok: bindings }
-    : // All other variables get unified which is why we attempt to match them
-      // against the data in the current state.
-      Variable.is(term)
-      ? matchVariable(term, value, bindings)
-      : // If term is a constant we simply ensure that it matches the data.
-        matchConstant(term, value, bindings)
-
-/**
- * @template {API.Bindings} Bindings
- *
- * @param {API.Constant} constant
- * @param {API.Constant} value
- * @param {Bindings} frame
- * @returns {API.Result<Bindings, Error>}
- */
-export const matchConstant = (constant, value, frame) =>
-  constant === value || equal(constant, value)
-    ? { ok: frame }
-    : { error: new RangeError(`Expected ${constant} got ${value}`) }
-
-/**
- *
- * @param {API.Variable} variable
- * @param {API.Constant} value
- * @param {API.Bindings} bindings
- * @returns {API.Result<API.Bindings, Error>}
- */
-export const matchVariable = (variable, value, bindings) => {
-  // Get key this variable is bound to in the context
-  const key = Variable.toKey(variable)
-  // If context already contains binding for we attempt to unify it with the
-  // new data otherwise we bind the data to the variable.
-  if (key in bindings) {
-    return matchTerm(bindings[key], value, bindings)
-  } else {
-    const result = Variable.check(variable, value)
-    return result.error ? result : { ok: { ...bindings, [key]: value } }
-  }
 }
 
 /**
@@ -462,7 +410,7 @@ const matchRule = function* (db, rule, bindings) {
  */
 const unifyRule = (input, selector, bindings) => {
   for (const [path, variable] of Selector.entries(selector)) {
-    const result = unifyMatch(Selector.at(input, path), variable, bindings)
+    const result = Bindings.unify(Selector.at(input, path), variable, bindings)
     if (result.error) {
       return result
     }
@@ -470,55 +418,4 @@ const unifyRule = (input, selector, bindings) => {
   }
 
   return { ok: bindings }
-}
-
-/**
- * @param {API.Term} input
- * @param {API.Term} variable
- * @param {API.Bindings} bindings
- * @returns {API.Result<API.Bindings, Error>}
- */
-const unifyMatch = (input, variable, bindings) => {
-  if (input === variable) {
-    return { ok: bindings }
-  } else if (Variable.is(input)) {
-    return extendIfPossible(input, variable, bindings)
-  } else if (Variable.is(variable)) {
-    return extendIfPossible(variable, input, bindings)
-  } else {
-    return { error: new RangeError(`Expected ${input} got ${variable}`) }
-  }
-}
-
-/**
- * @template {API.Constant} T
- * @param {API.Variable<T>} variable
- * @param {API.Term<T>} value
- * @param {API.Bindings} bindings
- * @returns {API.Result<API.Bindings, Error>}
- */
-const extendIfPossible = (variable, value, bindings) => {
-  const binding = Bindings.get(bindings, variable)
-  if (binding != null) {
-    return matchTerm(value, binding, bindings)
-  } else if (Variable.is(value)) {
-    const binding = Bindings.get(bindings, value)
-    if (binding != null) {
-      return matchTerm(variable, binding, bindings)
-    } else {
-      return {
-        ok: /** @type {API.Bindings} */ ({
-          ...bindings,
-          [Variable.toKey(variable)]: value,
-        }),
-      }
-    }
-
-    // Not sure how can we resolve variable to query here which is why
-    // it is commented out.
-    // } else if (isDependent(value, variable, frame)) {
-    //   return { error: new Error(`Can not self reference`) }
-  } else {
-    return { ok: { ...bindings, [Variable.toKey(variable)]: value } }
-  }
 }

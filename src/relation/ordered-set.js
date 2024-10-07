@@ -17,7 +17,7 @@ export const from = (instances) => {
 }
 
 /**
- * @implements {API.Relation}
+ * @implements {API._Relation}
  */
 class OrderedSetRelation {
   /**
@@ -74,7 +74,7 @@ class OrderedSetRelation {
   }
 
   /**
-   * @param {API.Relation} relation
+   * @param {API._Relation} relation
    */
   merge(relation) {
     if (relation instanceof OrderedSetRelation) {

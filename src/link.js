@@ -62,11 +62,15 @@ export const fromBytes = (bytes) => /** @type {any} */ (Link.decode(bytes))
  * @returns {API.Link<Value, typeof CBOR.code, 0x1e>}
  */
 export const of = (value) => {
-  const bytes = CBOR.encode(value)
-  const digest = Blake3.blake3(bytes)
-  return /** @type {any} */ (
-    Link.create(CBOR.code, Digest.create(0x1e, digest))
-  )
+  if (is(value)) {
+    return value
+  } else {
+    const bytes = CBOR.encode(value)
+    const digest = Blake3.blake3(bytes)
+    return /** @type {any} */ (
+      Link.create(CBOR.code, Digest.create(0x1e, digest))
+    )
+  }
 }
 
 /**

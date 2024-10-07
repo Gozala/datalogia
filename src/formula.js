@@ -19,7 +19,7 @@ export const equality = (operand, modifier) => ({
  * @param {API.RelationID} id
  * @param {API.Version} version
  * @param {Rows} rows
- * @param {API.Relation} relation
+ * @param {API._Relation} relation
  * @returns {API.Formula}
  */
 export const notIn = (id, version, rows, relation) => ({

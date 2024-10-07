@@ -8,7 +8,7 @@ import * as Term from '../term.js'
  * @param {object} source
  * @param {Rows} source.rows
  * @param {API.RelationKey} source.relationKey
- * @param {API.Relation} source.relation
+ * @param {API._Relation} source.relation
  * @returns {API.NotIn<Rows>}
  */
 export const create = (source) => new NotIn(source)
@@ -21,7 +21,7 @@ class NotIn {
    * @param {object} source
    * @param {Rows} source.rows
    * @param {API.RelationKey} source.relationKey
-   * @param {API.Relation} source.relation
+   * @param {API._Relation} source.relation
    */
   constructor(source) {
     this.model = source
