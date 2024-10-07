@@ -225,4 +225,101 @@ export const operators = {
       return []
     }
   },
+
+  /**
+   * @param {unknown} numbers
+   * @returns
+   */
+  '+': (numbers) => {
+    if (Array.isArray(numbers)) {
+      let total = 0
+      for (const number of numbers) {
+        if (typeof number === 'number') {
+          total += number
+        } else {
+          return []
+        }
+      }
+      return [total]
+    } else {
+      return []
+    }
+  },
+
+  /**
+   * @param {unknown} numbers
+   * @returns
+   */
+  '-': (numbers) => {
+    if (Array.isArray(numbers)) {
+      if (numbers.length === 0) {
+        return [-0]
+      }
+
+      const [first, ...rest] = numbers
+      if (rest.length === 0) {
+        return [-first]
+      } else {
+        let total = first
+        for (const number of rest) {
+          if (typeof number === 'number') {
+            total -= number
+          } else {
+            return []
+          }
+        }
+        return [total]
+      }
+    } else {
+      return []
+    }
+  },
+  /**
+   * @param {unknown} numbers
+   * @returns
+   */
+  '*': (numbers) => {
+    if (Array.isArray(numbers)) {
+      let total = 1
+
+      for (const number of numbers) {
+        if (typeof number === 'number') {
+          total *= number
+        } else {
+          return []
+        }
+      }
+      return [total]
+    } else {
+      return []
+    }
+  },
+  /**
+   * @param {unknown} numbers
+   * @returns
+   */
+  '/': (numbers) => {
+    if (Array.isArray(numbers)) {
+      if (numbers.length === 0) {
+        return [1]
+      }
+
+      const [first, ...rest] = numbers
+      if (rest.length === 0) {
+        return [1 / first]
+      } else {
+        let total = first
+        for (const number of rest) {
+          if (typeof number === 'number' && number !== 0) {
+            total /= number
+          } else {
+            return []
+          }
+        }
+        return [total]
+      }
+    } else {
+      return []
+    }
+  },
 }

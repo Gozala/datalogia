@@ -376,4 +376,197 @@ export const testRelation = {
         [{ out: 12 }]
       )
     }),
+
+  'test + relation': (assert) =>
+    Task.spawn(function* () {
+      const a = DB.variable()
+      const b = DB.variable()
+      const c = DB.variable()
+      assert.deepEqual(
+        yield* DB.query(db, {
+          select: { c },
+          where: [
+            { Match: [1, '==', a] },
+            { Match: [2, '==', b] },
+            { Match: [[a, b], '+', c] },
+          ],
+        }),
+        [{ c: 3 }]
+      )
+
+      assert.deepEqual(
+        yield* DB.query(db, {
+          select: { c },
+          where: [
+            { Match: [1, '==', a] },
+            { Match: [2, '==', b] },
+            { Match: [[a, b, 10, b], '+', c] },
+          ],
+        }),
+        [{ c: 15 }]
+      )
+
+      assert.deepEqual(
+        yield* DB.query(db, {
+          select: { c },
+          where: [{ Match: [[5], '+', c] }],
+        }),
+        [{ c: 5 }]
+      )
+
+      assert.deepEqual(
+        yield* DB.query(db, {
+          select: { c },
+          where: [{ Match: [[], '+', c] }],
+        }),
+        [{ c: 0 }]
+      )
+    }),
+
+  'test - relation': (assert) =>
+    Task.spawn(function* () {
+      const a = DB.variable()
+      const b = DB.variable()
+      const c = DB.variable()
+      assert.deepEqual(
+        yield* DB.query(db, {
+          select: { c },
+          where: [
+            { Match: [10, '==', a] },
+            { Match: [2, '==', b] },
+            { Match: [[a, b], '-', c] },
+          ],
+        }),
+        [{ c: 8 }]
+      )
+
+      assert.deepEqual(
+        yield* DB.query(db, {
+          select: { c },
+          where: [
+            { Match: [10, '==', a] },
+            { Match: [2, '==', b] },
+            { Match: [[a, b, 1, b], '-', c] },
+          ],
+        }),
+        [{ c: 5 }]
+      )
+
+      assert.deepEqual(
+        yield* DB.query(db, {
+          select: { c },
+          where: [{ Match: [[], '-', c] }],
+        }),
+        [{ c: 0 }]
+      )
+
+      assert.deepEqual(
+        yield* DB.query(db, {
+          select: { c },
+          where: [{ Match: [[6], '-', c] }],
+        }),
+        [{ c: -6 }]
+      )
+    }),
+
+  'test * relation': (assert) =>
+    Task.spawn(function* () {
+      const a = DB.variable()
+      const b = DB.variable()
+      const c = DB.variable()
+      assert.deepEqual(
+        yield* DB.query(db, {
+          select: { c },
+          where: [
+            { Match: [10, '==', a] },
+            { Match: [2, '==', b] },
+            { Match: [[a, b], '*', c] },
+          ],
+        }),
+        [{ c: 20 }]
+      )
+
+      assert.deepEqual(
+        yield* DB.query(db, {
+          select: { c },
+          where: [
+            { Match: [10, '==', a] },
+            { Match: [2, '==', b] },
+            { Match: [[a, b, 3, b], '*', c] },
+          ],
+        }),
+        [{ c: 120 }]
+      )
+
+      assert.deepEqual(
+        yield* DB.query(db, {
+          select: { c },
+          where: [{ Match: [[], '*', c] }],
+        }),
+        [{ c: 1 }]
+      )
+
+      assert.deepEqual(
+        yield* DB.query(db, {
+          select: { c },
+          where: [{ Match: [10, '==', a] }, { Match: [[a], '*', c] }],
+        }),
+        [{ c: 10 }]
+      )
+    }),
+
+  'test / relation': (assert) =>
+    Task.spawn(function* () {
+      const a = DB.variable()
+      const b = DB.variable()
+      const c = DB.variable()
+      assert.deepEqual(
+        yield* DB.query(db, {
+          select: { c },
+          where: [
+            { Match: [10, '==', a] },
+            { Match: [2, '==', b] },
+            { Match: [[a, b], '/', c] },
+          ],
+        }),
+        [{ c: 5 }]
+      )
+
+      assert.deepEqual(
+        yield* DB.query(db, {
+          select: { c },
+          where: [
+            { Match: [48, '==', a] },
+            { Match: [2, '==', b] },
+            { Match: [[a, b, 3, b], '/', c] },
+          ],
+        }),
+        [{ c: 4 }]
+      )
+
+      assert.deepEqual(
+        yield* DB.query(db, {
+          select: { c },
+          where: [{ Match: [[], '/', c] }],
+        }),
+        [{ c: 1 }]
+      )
+
+      assert.deepEqual(
+        yield* DB.query(db, {
+          select: { c },
+          where: [{ Match: [5, '==', a] }, { Match: [[a], '/', c] }],
+        }),
+        [{ c: 0.2 }]
+      )
+
+      assert.deepEqual(
+        yield* DB.query(db, {
+          select: { c },
+          where: [{ Match: [5, '==', a] }, { Match: [[a, 2, 0], '/', c] }],
+        }),
+        [],
+        'division by zero not allowed'
+      )
+    }),
 }

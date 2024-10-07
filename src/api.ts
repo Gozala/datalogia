@@ -256,8 +256,6 @@ export type Relation =
   | readonly [Term, 'type', Term]
   | readonly [Term, '@', Term]
   | readonly [Term, '==', Term]
-  // | [Term<Numeric>, 'math/negate', Term<Numeric>]
-  // | [Term<Numeric>, 'math/absolute', Term<Numeric>]
   | [Term, 'string/length', Term]
   | [Term, 'string/words', Term]
   | [Term, 'string/lines', Term]
@@ -269,12 +267,14 @@ export type Relation =
   | [Term, 'string/from/utf8', Term]
   | [Term, 'string/to/utf8', Term]
   | [Term[], 'string/concat', Term]
-// | [Term<Numeric>[], '+', Term<Numeric>]
-// | [Term<Numeric>[], '-', Term<Numeric>]
-// | [Term<Numeric>[], '*', Term<Numeric>]
-// | [Term<Numeric>[], '/', Term<Numeric>]
+  | [Term[], '+', Term]
+  | [Term[], '-', Term]
+  | [Term[], '*', Term]
+  | [Term[], '/', Term]
 // | [Term<Numeric>[], '%', Term<Numeric>]
 // | [Term<Numeric>, '**', Term<Numeric>]
+// | [Term<Numeric>, 'math/negate', Term<Numeric>]
+// | [Term<Numeric>, 'math/absolute', Term<Numeric>]
 // | RelationFormula
 
 export type RelationFormula<
