@@ -133,7 +133,7 @@ export const is = Object.assign(
  */
 export const greater = (operand, modifier) =>
   select({ operand, modifier }).where(
-    ({ operand, modifier }) => operand > modifier
+    ({ operand, modifier }) => (operand ?? 0) > (modifier ?? 0)
   )
 
 /**
@@ -144,7 +144,7 @@ export const greater = (operand, modifier) =>
  */
 export const greaterOrEqual = (operand, modifier) =>
   select({ operand, modifier }).where(
-    ({ operand, modifier }) => operand >= modifier
+    ({ operand, modifier }) => (operand ?? 0) >= (modifier ?? 0)
   )
 
 /**
@@ -155,7 +155,7 @@ export const greaterOrEqual = (operand, modifier) =>
  */
 export const less = (operand, modifier) =>
   select({ operand, modifier }).where(
-    ({ operand, modifier }) => operand < modifier
+    ({ operand, modifier }) => (operand ?? 0) < (modifier ?? 0)
   )
 
 /**
@@ -166,7 +166,7 @@ export const less = (operand, modifier) =>
  */
 export const lessOrEqual = (operand, modifier) =>
   select({ operand, modifier }).where(
-    ({ operand, modifier }) => operand <= modifier
+    ({ operand, modifier }) => (operand ?? 0) <= (modifier ?? 0)
   )
 
 /**
