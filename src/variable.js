@@ -83,6 +83,8 @@ export const string = Object.assign(() => variable(Type.String), Type.String)
 
 export const bytes = Object.assign(() => variable(Type.Bytes), Type.Bytes)
 export const link = Object.assign(() => variable(Type.Link), Type.Link)
+
+export const entity = Object.assign(() => variable(Type.Link), Type.Link)
 export { int32 as integer, float32 as float }
 
 /**

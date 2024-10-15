@@ -1,71 +1,124 @@
 import * as API from './api.js'
-import * as Predicate from './formula/predicate.js'
-import * as NotIn from './formula/not-in.js'
-import * as Equality from './formula/equality.js'
+import { Link } from './constant.js'
+import * as Term from './term.js'
 import * as Bindings from './bindings.js'
+import { Var } from './lib.js'
+import * as Data from './formula/data.js'
+import * as Text from './formula/text.js'
+import * as Math from './formula/math.js'
+import * as UTF8 from './formula/utf8.js'
 
 /**
- *
- * @param {API.Term} operand
- * @param {API.Term} modifier
- * @returns {API.Formula}
+ * @param {API.Querier} db
+ * @param {API.Clause['Match'] & {}} formula
+ * @param {Iterable<API.Bindings>} frames
  */
-export const equality = (operand, modifier) => ({
-  Equality: Equality.create({ operand, modifier }),
-})
+export const evaluate = function* (db, [from, relation, to], frames) {
+  const operator =
+    /** @type {(input: API.Operand) => Iterable<API.Operand>} */
+    (typeof relation === 'string' ? operators[relation] : relation)
 
-/**
- * @template {API.Variables} Rows
- * @param {API.RelationID} id
- * @param {API.Version} version
- * @param {Rows} rows
- * @param {API.Relation} relation
- * @returns {API.Formula}
- */
-export const notIn = (id, version, rows, relation) => ({
-  NotIn: NotIn.create({ relationKey: [id, version], rows, relation }),
-})
-
-/**
- * @template {API.Selector} Variables
- * @param {Variables} variables
- * @param {API.TryFrom<{Self:{}, Input: API.InferBindings<Variables>}>} schema
- * @returns {API.Formula}
- */
-
-export const predicate = (variables, schema) => ({
-  Predicate: Predicate.create(
-    /** @type {API.Predicate} */ ({ variables, schema })
-  ),
-})
-
-/**
- * @param {API.Formula} formula
- */
-export const toString = (formula) => {
-  if (formula.Equality) {
-    return Equality.toString(formula.Equality)
-  } else if (formula.NotIn) {
-    return NotIn.toString(formula.NotIn)
-  } else {
-    return Predicate.toString(formula.Predicate)
+  const matches = []
+  for (const frame of frames) {
+    const input = resolve(/** @type {API.Terms} */ (from), frame)
+    for (const out of operator(input)) {
+      if (to == null) {
+        matches.push(frame)
+      } else if (Term.is(to)) {
+        const match = Bindings.unify(/** @type {API.Term} */ (out), to, frame)
+        if (!match.error) {
+          matches.push(match.ok)
+        }
+      } else {
+        const extension = /** @type {Record<string, API.Constant>} */ (out)
+        let bindings = frame
+        for (const [key, term] of Object.entries(to)) {
+          const match = Bindings.unify(extension[key], term, frame)
+          if (match.ok) {
+            bindings = match.ok
+          } else {
+            break
+          }
+        }
+        matches.push(bindings)
+      }
+    }
   }
+  return matches
 }
 
 /**
- *
- * @param {API.Formula} formula
+ * @template {API.Terms} Terms
+ * @param {Terms} terms
  * @param {API.Bindings} bindings
- * @returns {API.Result<{}, Error>}
+ * @returns {API.InferTerms<Terms>}
  */
-export const conform = (formula, bindings) => {
-  if (formula.Equality) {
-    return Equality.conform(formula.Equality, bindings)
-  } else if (formula.NotIn) {
-    return NotIn.conform(formula.NotIn, bindings)
-  } else if (formula.Predicate) {
-    return Predicate.conform(formula.Predicate, bindings)
+export const resolve = (terms, bindings) =>
+  /** @type {API.InferTerms<Terms>} */
+  (
+    Term.is(terms)
+      ? Bindings.get(bindings, terms)
+      : Array.isArray(terms)
+        ? terms.map((term) => Bindings.get(bindings, term))
+        : Object.fromEntries(
+            Object.entries(terms).map(([key, term]) => [
+              key,
+              Bindings.get(bindings, term),
+            ])
+          )
+  )
+
+/**
+ * @param {API.Constant} value
+ * @returns {[API.Link]}
+ */
+export const reference = (value) => [Link.of(value)]
+
+export const operators = {
+  '==': Data.is,
+  'data/type': Data.type,
+  'data/refer': Data.refer,
+  'text/like': Text.like,
+  'text/concat': Text.concat,
+  'text/words': Text.words,
+  'text/lines': Text.lines,
+  'text/case/upper': Text.toUpperCase,
+  'text/case/lower': Text.toLowerCase,
+  'text/trim': Text.trim,
+  'text/trim/start': Text.trimStart,
+  'text/trim/end': Text.trimEnd,
+  'text/includes': Text.includes,
+  'text/slice': Text.slice,
+  'text/length': Text.length,
+  'text/to/utf8': UTF8.toUTF8,
+  'utf8/to/text': UTF8.fromUTF8,
+  '+': Math.sum,
+  '-': Math.subtract,
+  '*': Math.multiply,
+  '/': Math.divide,
+  '%': Math.modulo,
+  '**': Math.power,
+  'math/absolute': Math.absolute,
+}
+
+/**
+ * Iterates over the variables in the given relation.
+ *
+ * @param {API.Clause['Match'] & {}} relation
+ * @returns {Iterable<API.Variable>}
+ */
+export const variables = function* ([from, _relation, to]) {
+  if (Var.is(from)) {
+    yield from
+  } else if (Array.isArray(from)) {
+    for (const term of from) {
+      if (Var.is(term)) {
+        yield term
+      }
+    }
   }
 
-  return { error: new RangeError(`Unrecognized formula ${formula}`) }
+  if (Var.is(to)) {
+    yield to
+  }
 }

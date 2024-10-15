@@ -1,5 +1,6 @@
 import { ByteView, Link as IPLDLink } from 'multiformats'
 import { Task } from './task.js'
+import { Output } from 'entail'
 
 export type { ByteView, Task }
 
@@ -134,6 +135,8 @@ export type Float32 = New<{ Float32: number }>
  */
 export type Bytes = Uint8Array
 
+export type Null = null
+
 /**
  * Type representing an IPLD link.
  */
@@ -151,7 +154,15 @@ export interface Link<
  * We are likely to introduce uint32, int8, uint8 and etc but for now we have
  * chosen to keep things simple.
  */
-export type Constant = boolean | Int32 | Float32 | Int64 | string | Bytes | Link
+export type Constant =
+  | null
+  | boolean
+  | Int32
+  | Float32
+  | Int64
+  | string
+  | Bytes
+  | Link
 
 /**
  * Supported primitive types. Definition utilizes `Phantom` type to describe
@@ -167,6 +178,7 @@ export type Type<T extends Constant = Constant> = Phantom<T> &
     String: Unit
     Bytes: Unit
     Link: Unit
+    Null: Unit
   }>
 
 // /**
@@ -203,20 +215,12 @@ export type VariableID = number
  */
 export type Term<T extends Constant = Constant> = T | Variable<T>
 
-export type ExtendedTerm = Constant | VariableVariant
-
-export type VariableVariant = Variant<{
-  Row: { id: RelationID; alias?: AliasID; row: RowID }
-  Link: { id: RelationID; alias?: AliasID }
-  Aggregate: { id: RelationID; alias?: AliasID; variable: Variable }
-}>
-
 /**
  * Describes association between `entity`, `attribute`, `value` of the
- * {@link Fact}. Each component of the {@link Relation} is a {@link Term}
+ * {@link Fact}. Each component of the {@link _Relation} is a {@link Term}
  * that is either a constant or a {@link Variable}.
  *
- * Query engine during execution will attempt to match {@link Relation} against
+ * Query engine during execution will attempt to match {@link _Relation} against
  * all facts in the database and unify {@link Variable}s across them to identify
  * all possible solutions.
  */
@@ -237,13 +241,130 @@ export type Clause = Variant<{
   Not: Clause
   // pattern match a fact
   Case: Pattern
+
   // match aggregated bindings
   Form: MatchForm
   // rule application
   Rule: MatchRule
   // assign bindings
   Is: Is
+
+  Match: Formula
 }>
+
+export type Terms = Record<string, Term> | [Term, ...Term[]] | Term
+
+export type Numeric = Int32 | Int64 | Float32
+
+// export type Perform<T extends any> = readonly [
+//   operator: T['Operator'],
+//   input: T['Input'],
+//   output: T['Output'],
+// ]
+
+/**
+ * Describes operand of the operator.
+ */
+export type Operand =
+  | Constant
+  | Record<string, Constant>
+  | [Constant, ...Constant[]]
+
+type EphemeralEntity =
+  | Term<Entity>
+  | Record<string, Term>
+  | [Term<Entity>, ...Term<Entity>[]]
+
+export type InferOperand<T extends Operand, K = T> = K extends Constant
+  ? Term<T & Constant>
+  : K extends Array<infer U extends Constant>
+    ? Term<U>[]
+    : {
+        [Key in keyof K]: T[Key & keyof T] & K[Key] extends infer U extends
+          Constant
+          ? Term<U>
+          : never
+      }
+
+export interface Operator<
+  Input extends Operand,
+  Relation extends string,
+  Output extends Operand,
+> {
+  relation: Relation
+  (input: Input): Iterable<Output>
+}
+
+export type Relation<
+  Input extends Operand,
+  Operator,
+  Output extends Operand,
+> = readonly [
+  input: InferOperand<Input>,
+  operator: Operator,
+  output?: InferOperand<Output>,
+]
+
+export type TypeName =
+  | 'null'
+  | 'boolean'
+  | 'string'
+  | 'bigint'
+  | 'int64'
+  | 'int32'
+  | 'float32'
+  | 'bytes'
+  | 'reference'
+
+export type Tuple<T> = [T, ...T[]]
+
+export type InferYield<T> = T extends Iterable<infer U> ? U : never
+
+export type InferFormula<
+  Operator extends string,
+  Formula extends (input: In) => Iterable<Out>,
+  In extends Operand = Parameters<Formula>[0],
+  Out extends Operand = InferYield<ReturnType<Formula>>,
+> = readonly [
+  input: InferOperand<In>,
+  operator: Operator,
+  output?: InferOperand<Out>,
+]
+
+import * as DataOperators from './formula/data.js'
+import * as TextOperators from './formula/text.js'
+import * as UTF8Operators from './formula/utf8.js'
+import * as MathOperators from './formula/math.js'
+
+export type Formula =
+  | InferFormula<'==', typeof DataOperators.is>
+  | InferFormula<'data/type', typeof DataOperators.type>
+  | InferFormula<'data/refer', typeof DataOperators.refer>
+  | InferFormula<'text/like', typeof TextOperators.like>
+  | InferFormula<'text/length', typeof TextOperators.length>
+  | InferFormula<'text/words', typeof TextOperators.words>
+  | InferFormula<'text/lines', typeof TextOperators.lines>
+  | InferFormula<'text/case/upper', typeof TextOperators.toUpperCase>
+  | InferFormula<'text/case/lower', typeof TextOperators.toUpperCase>
+  | InferFormula<'text/trim', typeof TextOperators.trim>
+  | InferFormula<'text/trim/start', typeof TextOperators.trimStart>
+  | InferFormula<'text/trim/end', typeof TextOperators.trimEnd>
+  | InferFormula<'utf8/to/text', typeof UTF8Operators.fromUTF8>
+  | InferFormula<'text/to/utf8', typeof UTF8Operators.toUTF8>
+  | InferFormula<'text/includes', typeof TextOperators.includes>
+  | InferFormula<'text/slice', typeof TextOperators.slice>
+  | InferFormula<'text/concat', typeof TextOperators.concat>
+  | InferFormula<'+', typeof MathOperators.sum>
+  | InferFormula<'-', typeof MathOperators.subtract>
+  | InferFormula<'*', typeof MathOperators.multiply>
+  | InferFormula<'/', typeof MathOperators.divide>
+  | InferFormula<'%', typeof MathOperators.modulo>
+  | InferFormula<'**', typeof MathOperators.power>
+  | InferFormula<'math/absolute', typeof MathOperators.absolute>
+
+export type InferTerms<T extends Terms> = T extends Term<infer U>
+  ? U
+  : { [Key in keyof T]: T[Key] extends Term<infer U> ? U : never }
 
 export type Frame = Record<PropertyKey, Term>
 
@@ -318,183 +439,18 @@ export interface Querier {
   scan(selector?: FactsSelector): Task<Datum[], Error>
 }
 
-export type Constraint = Variant<{
-  '==': [Term, Term]
-  '!=': [Term, Term]
-  '<': [Term, Term]
-  '<=': [Term, Term]
-  '>': [Term, Term]
-  '>=': [Term, Term]
-}>
-
-export type Operation = Variant<{
-  // a.k.a Projection in PomoRA
-  Select: Select
-  Search: Search
-  // a.k.a Aggregation
-  Accumulate: Accumulate
-}>
-
-/**
- * Describes Projection unary operation in the PomoRA which is parameterized
- * over a set of attribute names, and restricts propositions in its input
- * relation to the attributes given by these names.
- *
- * @see https://github.com/RhizomeDB/PomoRA?tab=readme-ov-file#211-projection
- */
-export interface Select<Rows extends Selector = Selector> {
-  relationKey: RelationKey
-  rows: Rows
-  relation: Relation
-  formulae: Formula[]
+export type Rule<Match extends Selector = Selector> = {
+  select: Match
+  where: Clause
 }
-
-/**
- * A selection is a unary operation which is parameterized over a propositional
- * formula, and that returns instances in its input relation for which this
- * formula holds.
- *
- * @see https://github.com/RhizomeDB/PomoRA?tab=readme-ov-file#213-selection
- */
-
-export interface Search {
-  relationKey: RelationKey
-  alias?: AliasID
-  relation: Relation
-
-  variables: Variables
-  when: Formula[]
-  operation: Operation
-}
-
-/**
- * a.k.a Aggregation
- */
-export interface Accumulate<
-  T extends Constant = Constant,
-  Vars extends Variables = Variables,
-> {
-  variables: Vars
-  aggregator: Aggregate<{
-    Self: {} | null
-    In: InferBindings<Vars>
-    Out: T
-  }>
-
-  groupByRows: Variables
-  target: Variable<T>
-
-  id: RelationID
-  alias?: AliasID
-  relation: Relation
-  when: Formula[]
-  operation: Operation
-}
-
-export type Formula = Variant<{
-  Equality: Equality
-  NotIn: NotIn
-  Predicate: Predicate
-}>
-
-export interface Equality {
-  operand: Term
-  modifier: Term
-}
-
-export interface NotIn<Rows extends Variables = Variables> {
-  relationKey: RelationKey
-  rows: Rows
-  relation: Relation
-}
-
-export interface Predicate<Variables extends Selector = Selector> {
-  variables: Variables
-  schema: TryFrom<{ Self: {}; Input: InferBindings<Variables> }>
-}
-
-export type RelationKey = [RelationID, Version]
-export type AliasID = string
-
-export type Version = Variant<{
-  Total: {}
-  Delta: {}
-  New: {}
-}>
-
-export type Rule<Match extends Selector = Selector> =
-  | DeductiveRule<Match>
-  | InductiveRule<Match>
 
 export interface MatchRule<Match extends Selector = Selector> {
   input: Selector
   rule?: Rule<Match>
 }
 
-export interface DeductiveRule<Match extends Selector = Selector> {
-  select: Match
-  // where: RulePredicate[]
-  where: Clause
-}
-
-export interface InductiveRule<Match extends Selector = Selector> {
-  select: Match
-  // where: RulePredicate[]
-  where: Clause
-}
-
-export type RuleBodyTerm = Variant<{
-  VariablePredicate: VariablePredicate
-  RelationPredicate: RelationPredicate
-  Negation: Negation
-  Aggregation: Aggregation
-}>
-
-export interface RuleModel<Variables extends Selector = Selector> {
-  head: RelationID
-  variables: Variables
-  body: RuleBodyTerm[]
-}
-
-export interface VariablePredicate<Vars extends Variables = Variables> {
-  variables: Vars
-  predicate: TryFrom<{ Self: {}; Input: InferBindings<Variables> }>
-}
-
-export interface RelationPredicate<Vars extends Variables = Variables> {
-  variables: Vars
-  relation: Declaration
-  link?: Term<Link>
-}
-
-export interface Negation<Vars extends Variables = Variables> {
-  variables: Vars
-  relation: Declaration
-}
-
-export interface Aggregation<
-  T extends Constant = Constant,
-  Vars extends Variables = Variables,
-> {
-  target: Variable<T>
-  variables: Vars
-  relation: Declaration
-  groupByRows: Vars
-  aggregator: Aggregate<{
-    Self: {} | null
-    In: InferBindings<Vars>
-    Out: T
-  }>
-}
-
 export interface Variables extends Record<PropertyKey, Variable> {}
 export interface Bindings extends Record<PropertyKey, Constant> {}
-
-export type BindingKey = Variant<{
-  Relation: { id: RelationID; alias?: AliasID; row: RowID }
-  Link: { id: RelationID; alias?: AliasID }
-  Aggregate: { id: RelationID; alias?: AliasID; variable: Variable }
-}>
 
 /**
  * Selection describes set of (named) variables that query engine will attempt
@@ -557,78 +513,6 @@ export interface Aggregate<
   end(state: Type['Self']): Result<Type['Out'], Error>
 }
 
-export type RelationID = string
-// ColId
-export type RowID = string
-
-export interface Declaration<Schema extends Rows = Rows> {
-  id: RelationID
-  schema: Table<Schema>
-
-  source: Source
-
-  relation: Relation
-}
-
-export type Source = Variant<{
-  Edb: {}
-  Idb: {}
-}>
-
-export interface Relation {
-  length: number
-  isEmpty(): boolean
-  contains(bindings: Bindings): boolean
-  search(bindings: Bindings): Iterable<Association>
-
-  purge(): void
-  insert(bindings: Bindings, instance: Association): void
-  merge(relation: Relation): void
-}
-
-export interface Table<Schema extends Rows = Rows> {
-  id: RelationID
-  rows: Schema
-}
-
-export interface Rows extends Record<RowID, Row> {}
-
-export interface Row<Type extends RowType = RowType> {
-  id: RowID
-  type: Type
-}
-
-export type RowTerm<T extends Constant = Constant> = T | Variable<T>
-
-export type RowType = Variant<{
-  Any: TryFrom<{ Self: Constant; Input: Constant }>
-  Boolean: TryFrom<{ Self: boolean; Input: Constant }>
-  Int32: TryFrom<{ Self: Int32; Input: Constant }>
-  Int64: TryFrom<{ Self: Int64; Input: Constant }>
-  Float32: TryFrom<{ Self: Float32; Input: Constant }>
-  String: TryFrom<{ Self: string; Input: Constant }>
-  Bytes: TryFrom<{ Self: Uint8Array; Input: Constant }>
-  Link: TryFrom<{ Self: Link; Input: Constant }>
-}>
-
-export type InferType<T extends RowType> = T['Any'] extends TryFrom<any>
-  ? Constant
-  : T['Boolean'] extends TryFrom<any>
-    ? boolean
-    : T['Int32'] extends TryFrom<any>
-      ? Int32
-      : T['Int64'] extends TryFrom<any>
-        ? Int64
-        : T['Float32'] extends TryFrom<any>
-          ? Float32
-          : T['String'] extends TryFrom<any>
-            ? string
-            : T['Bytes'] extends TryFrom<any>
-              ? Uint8Array
-              : T['Link'] extends TryFrom<any>
-                ? Link
-                : never
-
 export type InferBindings<Selection extends Selector> = {
   [Key in keyof Selection]: Selection[Key] extends Term<infer T>
     ? T
@@ -642,80 +526,3 @@ export type InferBindings<Selection extends Selector> = {
 }
 
 export type InferTerm<T extends Term> = T extends Term<infer U> ? U : never
-
-export interface BlockStore {}
-
-/**
- * Rhizome calls these a [`Fact`] in the AST context and a [`Tuple`] in the
- * execution context and both are confusing given that [PomoDB Fact]s are EAVT
- * quads (4-tuples), and tuples are very overloaded. PomoLogic call these a
- * [ground atom][]s.
- *
- * We call these an `Association` because they represent set of attributes for
- * the same entity.
- *
- * [`Fact`]:https://github.com/RhizomeDB/rs-rhizome/blob/1a3a027dea60a3083596f00f2a4d6d5982eed040/rhizomedb/src/logic/ast/fact.rs
- * [PomoDB Fact]:https://github.com/RhizomeDB/spec?tab=readme-ov-file#412-fact
- * [ground atom]:https://github.com/RhizomeDB/PomoLogic/tree/e0a2b383cd5f08d7b950cf79147f95fe2bd47c90#atoms
- */
-export interface Association<Attributes extends Bindings = Bindings> {
-  head: RelationID
-  attributes: Attributes
-  link?: Link
-}
-
-export type Expression = Variant<{
-  Association: Association
-  Rule: RuleModel
-}>
-
-export interface Program {
-  declarations: Declaration[]
-  expressions: Expression[]
-}
-
-export interface Stratum {
-  relations: Set<RelationID>
-  recursive: boolean
-  expressions: Expression[]
-}
-
-// RAM
-
-export type Statement = Variant<{
-  Insert: Insert
-  Merge: Merge
-  Purge: Purge
-  Loop: Loop
-}>
-
-export interface Insert {
-  operation: Operation
-  // Whether the insertion is for a ground atom with all constant columns.
-  isGround: boolean
-}
-
-export interface Merge {
-  fromKey: RelationKey
-  intoKey: RelationKey
-
-  from: Relation
-  into: Relation
-}
-
-export interface Swap {
-  fromKey: RelationKey
-  intoKey: RelationKey
-
-  from: Relation
-  into: Relation
-}
-
-export interface Purge {
-  relationKey: RelationKey
-  relation: Relation
-}
-
-export interface Loop {
-  body: Statement[]
-}

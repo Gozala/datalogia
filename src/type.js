@@ -83,6 +83,8 @@ export const infer = (value) => {
         return Bytes
       } else if (isLink(value)) {
         return Link
+      } else if (value === null) {
+        return Null
       } else {
         throw Object.assign(new TypeError(`Object types are not supported`), {
           value,
@@ -131,6 +133,8 @@ export const toDiscriminant = (type) => {
     return 'Link'
   } else if (type.String) {
     return 'String'
+  } else if (type.Null) {
+    return 'Null'
   } else {
     throw new TypeError(`Invalid type ${type}`)
   }
@@ -155,6 +159,8 @@ export const match = (type) => {
     return ['Link', type.Link, type]
   } else if (type.String) {
     return ['String', type.String, type]
+  } else if (type.Null) {
+    return ['Null', type.Null, type]
   } else {
     throw new TypeError(`Invalid type ${type}`)
   }
@@ -176,3 +182,4 @@ export const Int64 = /** @type {API.Type<API.Int64>} */ ({ Int64: Unit })
 export const String = /** @type {API.Type<string>} */ ({ String: Unit })
 export const Bytes = /** @type {API.Type<API.Bytes>} */ ({ Bytes: Unit })
 export const Link = /** @type {API.Type<API.Link>} */ ({ Link: Unit })
+export const Null = /** @type {API.Type<API.Null>} */ ({ Null: Unit })
