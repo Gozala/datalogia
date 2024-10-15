@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.8.0](https://github.com/Gozala/datalogia/compare/v0.7.0...v0.8.0) (2024-10-15)
+
+
+### Features
+
+* implement relational operators ([#37](https://github.com/Gozala/datalogia/issues/37)) ([9d9f4ac](https://github.com/Gozala/datalogia/commit/9d9f4ac5f7bd4bf2b78285f3095077a68ef54f61))
+* implement relational predicates ([6d75a49](https://github.com/Gozala/datalogia/commit/6d75a499dfc6f127ea7655f45d24de627529afd4))
+* implement std formulas ([99f2115](https://github.com/Gozala/datalogia/commit/99f2115c21fba07b381e4c27d6bdd50334c161ef))
+
+
+### Bug Fixes
+
+* type errors ([8fbfef5](https://github.com/Gozala/datalogia/commit/8fbfef50a9b4f63178b18fbf8f141d795bdc2910))
+
 ## [0.7.0](https://github.com/Gozala/datalogia/compare/v0.6.0...v0.7.0) (2024-09-20)
 
 
