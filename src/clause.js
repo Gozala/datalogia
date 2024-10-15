@@ -2,6 +2,7 @@ import * as API from './api.js'
 import * as Variable from './variable.js'
 import * as Bindings from './bindings.js'
 import * as Selector from './selector.js'
+import * as Relation from './relation.js'
 import * as Term from './term.js'
 
 /**
@@ -88,7 +89,7 @@ export const variables = function* (query) {
     if (Variable.is(type)) {
       yield type
     }
-  } else {
+  } else if (query.Case) {
     const [entity, attribute, value] = query.Case
     if (Variable.is(entity)) {
       yield entity
@@ -99,6 +100,8 @@ export const variables = function* (query) {
     if (Variable.is(value)) {
       yield value
     }
+  } else if (query.Match) {
+    yield* Relation.variables(query.Match)
   }
 }
 

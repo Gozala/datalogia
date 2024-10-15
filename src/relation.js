@@ -2,7 +2,8 @@ import * as API from './api.js'
 import { Link } from './constant.js'
 import * as Term from './term.js'
 import * as Bindings from './bindings.js'
-import { Constant } from './lib.js'
+import { Variable } from './lib.js'
+import * as Pattern from './pattern.js'
 
 /**
  * @param {API.Querier} db
@@ -105,6 +106,23 @@ export const operators = {
    * @param {API.Constant} value
    */
   '==': (value) => [value],
+
+  /**
+   * @param {object} options
+   * @param {API.Constant} options.text
+   * @param {API.Pattern} options.pattern
+   */
+  'string/like': ({ text, pattern }) => {
+    if (typeof text === 'string' && typeof pattern === 'string') {
+      if (Pattern.compile(pattern, Pattern.GLOB).test(text)) {
+        return [text]
+      } else {
+        return []
+      }
+    } else {
+      return []
+    }
+  },
 
   /**
    * @param {string[]} value
@@ -322,4 +340,26 @@ export const operators = {
       return []
     }
   },
+}
+
+/**
+ * Iterates over the variables in the given relation.
+ *
+ * @param {API.Clause['Match'] & {}} relation
+ * @returns {Iterable<API.Variable>}
+ */
+export const variables = function* ([from, _relation, to]) {
+  if (Variable.is(from)) {
+    yield from
+  } else if (Array.isArray(from)) {
+    for (const term of from) {
+      if (Variable.is(term)) {
+        yield term
+      }
+    }
+  }
+
+  if (Variable.is(to)) {
+    yield to
+  }
 }

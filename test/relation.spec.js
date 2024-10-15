@@ -569,4 +569,39 @@ export const testRelation = {
         'division by zero not allowed'
       )
     }),
+
+  // 'test like': (assert) =>
+  //   Task.spawn(function* () {
+  //     const text = DB.string()
+  //     const out = DB.string()
+  //     assert.deepEqual(
+  //       yield* DB.query(db, {
+  //         select: { out },
+  //         where: [
+  //           {
+  //             Perform: ['string/like', { text, pattern: 'Hello*' }, 2],
+  //           },
+  //           // {
+  //           //   Perform: ['+', [0, 2], 'foo'],
+  //           // },
+  //           // {
+  //           //   Match: ['Hello world!', '==', text],
+  //           // },
+  //           // {
+  //           //   Match: ['==', "Hello World", text],
+  //           // },
+  //           // {
+  //           //   Match: ['string/match', {text, like: "Hello*"}],
+  //           // },
+  //           // {
+  //           //   Match: [text, {'string/like': "Hello*"}, out],
+  //           // }
+  //           // {
+  //           //   Match: ['data/type', {data, type}]
+  //           // }
+  //         ],
+  //       }),
+  //       [{ out: 12 }]
+  //     )
+  //   }),
 }
