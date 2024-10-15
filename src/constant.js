@@ -16,7 +16,7 @@ export const is = (value) => {
     case 'boolean':
       return true
     case 'object':
-      return value instanceof Uint8Array || Link.is(value)
+      return value === null || value instanceof Uint8Array || Link.is(value)
     default:
       return false
   }
@@ -56,7 +56,9 @@ export const toJSON = (self) => {
  * @param {API.Constant} self
  */
 export const toString = (self) => {
-  if (self instanceof Uint8Array) {
+  if (self === null) {
+    return 'null'
+  } else if (self instanceof Uint8Array) {
     return Bytes.toString(self)
   } else if (Link.is(self)) {
     return Link.toString(self)
@@ -70,4 +72,4 @@ export const toString = (self) => {
  * @param {API.Constant} other
  */
 export const compare = (self, other) =>
-  self.toString().localeCompare(other.toString())
+  toString(self).localeCompare(toString(other))

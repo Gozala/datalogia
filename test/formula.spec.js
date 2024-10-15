@@ -11,7 +11,7 @@ const db = DB.Memory.create([
   [$(1), 'true', true],
   [$(1), 'false', false],
   [$(1), 'bytes', new Uint8Array([1, 2, 3])],
-  // [$(1), 'null', /** @type {any} */ (null)],
+  [$(1), 'null', null],
   [$(1), 'id', $(1)],
 ])
 
@@ -21,9 +21,10 @@ const db = DB.Memory.create([
 export const testRelation = {
   'test type relation': (assert) =>
     Task.spawn(function* () {
+      /** @type {DB.Variable<DB.TypeName>} */
       const type = DB.variable()
       const q = DB.variable()
-      const expert = {
+      const expert = /** @type {const} */ ({
         text: 'string',
         int: 'int32',
         bigint: 'int64',
@@ -31,24 +32,26 @@ export const testRelation = {
         true: 'boolean',
         false: 'boolean',
         bytes: 'bytes',
-        // null: 'null',
+        null: 'null',
         id: 'reference',
-      }
+      })
 
       for (const [key, type] of Object.entries(expert)) {
+        const result = yield* DB.query(db, {
+          select: { type },
+          where: [
+            {
+              Case: [$(1), key, q],
+            },
+            {
+              Match: [q, 'data/type', type],
+            },
+          ],
+        })
         assert.deepEqual(
-          yield* DB.query(db, {
-            select: { type },
-            where: [
-              {
-                Case: [$(1), key, q],
-              },
-              {
-                Match: [q, 'type', type],
-              },
-            ],
-          }),
-          [{ type: type }]
+          result,
+          [{ type: type }],
+          `Expected ${type} got ${result} `
         )
       }
 
@@ -57,7 +60,7 @@ export const testRelation = {
           select: { type },
           where: [
             {
-              Match: [Infinity, 'type', type],
+              Match: [Infinity, 'data/type', type],
             },
           ],
         }),
@@ -68,8 +71,7 @@ export const testRelation = {
 
   'test reference relation': (assert) =>
     Task.spawn(function* () {
-      const type = DB.variable()
-      const q = DB.variable()
+      const q = DB.link()
       const fixtures = [
         'hello',
         $(1),
@@ -87,7 +89,7 @@ export const testRelation = {
             select: { q },
             where: [
               {
-                Match: [data, '@', q],
+                Match: [data, 'data/refer', q],
               },
             ],
           }),
@@ -144,10 +146,10 @@ export const testRelation = {
       )
     }),
 
-  'test string/concat': (assert) =>
+  'test text/concat': (assert) =>
     Task.spawn(function* () {
-      const text = DB.variable()
-      const out = DB.variable()
+      const text = DB.string()
+      const out = DB.string()
       assert.deepEqual(
         yield* DB.query(db, {
           select: { out },
@@ -156,7 +158,7 @@ export const testRelation = {
               Match: ['hello', '==', text],
             },
             {
-              Match: [[text, ' world'], 'string/concat', out],
+              Match: [[text, ' world'], 'text/concat', out],
             },
           ],
         }),
@@ -171,7 +173,7 @@ export const testRelation = {
               Match: ['hello', '==', text],
             },
             {
-              Match: [[text, ' ', 'world'], 'string/concat', out],
+              Match: [[text, ' ', 'world'], 'text/concat', out],
             },
           ],
         }),
@@ -179,10 +181,10 @@ export const testRelation = {
       )
     }),
 
-  'test string/words': (assert) =>
+  'test text/words': (assert) =>
     Task.spawn(function* () {
-      const text = DB.variable()
-      const word = DB.variable()
+      const text = DB.string()
+      const word = DB.string()
       assert.deepEqual(
         yield* DB.query(db, {
           select: { word },
@@ -191,7 +193,7 @@ export const testRelation = {
               Match: ['hello world', '==', text],
             },
             {
-              Match: [text, 'string/words', word],
+              Match: [text, 'text/words', word],
             },
           ],
         }),
@@ -199,10 +201,10 @@ export const testRelation = {
       )
     }),
 
-  'test string/lines': (assert) =>
+  'test text/lines': (assert) =>
     Task.spawn(function* () {
-      const text = DB.variable()
-      const line = DB.variable()
+      const text = DB.string()
+      const line = DB.string()
       assert.deepEqual(
         yield* DB.query(db, {
           select: { line },
@@ -211,7 +213,7 @@ export const testRelation = {
               Match: ['hello,\nhow are you\r\n', '==', text],
             },
             {
-              Match: [text, 'string/lines', line],
+              Match: [text, 'text/lines', line],
             },
           ],
         }),
@@ -219,10 +221,10 @@ export const testRelation = {
       )
     }),
 
-  'test string/case/upper': (assert) =>
+  'test text/case/upper': (assert) =>
     Task.spawn(function* () {
-      const text = DB.variable()
-      const word = DB.variable()
+      const text = DB.string()
+      const word = DB.string()
       assert.deepEqual(
         yield* DB.query(db, {
           select: { word },
@@ -231,7 +233,7 @@ export const testRelation = {
               Match: ['hello', '==', text],
             },
             {
-              Match: [text, 'string/case/upper', word],
+              Match: [text, 'text/case/upper', word],
             },
           ],
         }),
@@ -239,10 +241,10 @@ export const testRelation = {
       )
     }),
 
-  'test string/case/lower': (assert) =>
+  'test text/case/lower': (assert) =>
     Task.spawn(function* () {
-      const text = DB.variable()
-      const word = DB.variable()
+      const text = DB.string()
+      const word = DB.string()
       assert.deepEqual(
         yield* DB.query(db, {
           select: { word },
@@ -251,7 +253,7 @@ export const testRelation = {
               Match: ['Hello', '==', text],
             },
             {
-              Match: [text, 'string/case/lower', word],
+              Match: [text, 'text/case/lower', word],
             },
           ],
         }),
@@ -261,8 +263,8 @@ export const testRelation = {
 
   'test string/trim': (assert) =>
     Task.spawn(function* () {
-      const text = DB.variable()
-      const out = DB.variable()
+      const text = DB.string()
+      const out = DB.string()
       assert.deepEqual(
         yield* DB.query(db, {
           select: { out },
@@ -271,7 +273,7 @@ export const testRelation = {
               Match: ['   Hello world!   ', '==', text],
             },
             {
-              Match: [text, 'string/trim', out],
+              Match: [text, 'text/trim', out],
             },
           ],
         }),
@@ -279,10 +281,10 @@ export const testRelation = {
       )
     }),
 
-  'test string/trim/start': (assert) =>
+  'test text/trim/start': (assert) =>
     Task.spawn(function* () {
-      const text = DB.variable()
-      const out = DB.variable()
+      const text = DB.string()
+      const out = DB.string()
       assert.deepEqual(
         yield* DB.query(db, {
           select: { out },
@@ -291,7 +293,7 @@ export const testRelation = {
               Match: ['   Hello world!   ', '==', text],
             },
             {
-              Match: [text, 'string/trim/start', out],
+              Match: [text, 'text/trim/start', out],
             },
           ],
         }),
@@ -300,8 +302,8 @@ export const testRelation = {
     }),
   'test string/trim/end': (assert) =>
     Task.spawn(function* () {
-      const text = DB.variable()
-      const out = DB.variable()
+      const text = DB.string()
+      const out = DB.string()
       assert.deepEqual(
         yield* DB.query(db, {
           select: { out },
@@ -310,17 +312,17 @@ export const testRelation = {
               Match: ['   Hello world!   ', '==', text],
             },
             {
-              Match: [text, 'string/trim/end', out],
+              Match: [text, 'text/trim/end', out],
             },
           ],
         }),
         [{ out: '   Hello world!' }]
       )
     }),
-  'test string/from/utf8': (assert) =>
+  'test utf8/to/text': (assert) =>
     Task.spawn(function* () {
-      const bytes = DB.variable()
-      const out = DB.variable()
+      const bytes = DB.bytes()
+      const out = DB.string()
       assert.deepEqual(
         yield* DB.query(db, {
           select: { out },
@@ -329,7 +331,7 @@ export const testRelation = {
               Match: [new TextEncoder().encode('Hello world!'), '==', bytes],
             },
             {
-              Match: [bytes, 'string/from/utf8', out],
+              Match: [bytes, 'utf8/to/text', out],
             },
           ],
         }),
@@ -337,10 +339,10 @@ export const testRelation = {
       )
     }),
 
-  'test string/to/utf8': (assert) =>
+  'test text/to/utf8': (assert) =>
     Task.spawn(function* () {
       const text = 'Hello world!'
-      const out = DB.variable()
+      const out = DB.bytes()
       assert.deepEqual(
         yield* DB.query(db, {
           select: { out },
@@ -349,7 +351,7 @@ export const testRelation = {
               Match: ['Hello world!', '==', text],
             },
             {
-              Match: [text, 'string/to/utf8', out],
+              Match: [text, 'text/to/utf8', out],
             },
           ],
         }),
@@ -357,10 +359,10 @@ export const testRelation = {
       )
     }),
 
-  'test string/length': (assert) =>
+  'test text/length': (assert) =>
     Task.spawn(function* () {
-      const text = DB.variable()
-      const out = DB.variable()
+      const text = DB.string()
+      const out = DB.integer()
       assert.deepEqual(
         yield* DB.query(db, {
           select: { out },
@@ -369,7 +371,7 @@ export const testRelation = {
               Match: ['Hello world!', '==', text],
             },
             {
-              Match: [text, 'string/length', out],
+              Match: [text, 'text/length', out],
             },
           ],
         }),
@@ -377,11 +379,11 @@ export const testRelation = {
       )
     }),
 
-  'test + relation': (assert) =>
+  'test + operator': (assert) =>
     Task.spawn(function* () {
-      const a = DB.variable()
-      const b = DB.variable()
-      const c = DB.variable()
+      const a = DB.integer()
+      const b = DB.integer()
+      const c = DB.integer()
       assert.deepEqual(
         yield* DB.query(db, {
           select: { c },
@@ -423,11 +425,11 @@ export const testRelation = {
       )
     }),
 
-  'test - relation': (assert) =>
+  'test - operator': (assert) =>
     Task.spawn(function* () {
-      const a = DB.variable()
-      const b = DB.variable()
-      const c = DB.variable()
+      const a = DB.integer()
+      const b = DB.integer()
+      const c = DB.integer()
       assert.deepEqual(
         yield* DB.query(db, {
           select: { c },
@@ -469,11 +471,11 @@ export const testRelation = {
       )
     }),
 
-  'test * relation': (assert) =>
+  'test * operator': (assert) =>
     Task.spawn(function* () {
-      const a = DB.variable()
-      const b = DB.variable()
-      const c = DB.variable()
+      const a = DB.integer()
+      const b = DB.integer()
+      const c = DB.integer()
       assert.deepEqual(
         yield* DB.query(db, {
           select: { c },
@@ -515,11 +517,11 @@ export const testRelation = {
       )
     }),
 
-  'test / relation': (assert) =>
+  'test / operator': (assert) =>
     Task.spawn(function* () {
-      const a = DB.variable()
-      const b = DB.variable()
-      const c = DB.variable()
+      const a = DB.integer()
+      const b = DB.integer()
+      const c = DB.integer()
       assert.deepEqual(
         yield* DB.query(db, {
           select: { c },
@@ -570,38 +572,159 @@ export const testRelation = {
       )
     }),
 
-  // 'test like': (assert) =>
-  //   Task.spawn(function* () {
-  //     const text = DB.string()
-  //     const out = DB.string()
-  //     assert.deepEqual(
-  //       yield* DB.query(db, {
-  //         select: { out },
-  //         where: [
-  //           {
-  //             Perform: ['string/like', { text, pattern: 'Hello*' }, 2],
-  //           },
-  //           // {
-  //           //   Perform: ['+', [0, 2], 'foo'],
-  //           // },
-  //           // {
-  //           //   Match: ['Hello world!', '==', text],
-  //           // },
-  //           // {
-  //           //   Match: ['==', "Hello World", text],
-  //           // },
-  //           // {
-  //           //   Match: ['string/match', {text, like: "Hello*"}],
-  //           // },
-  //           // {
-  //           //   Match: [text, {'string/like': "Hello*"}, out],
-  //           // }
-  //           // {
-  //           //   Match: ['data/type', {data, type}]
-  //           // }
-  //         ],
-  //       }),
-  //       [{ out: 12 }]
-  //     )
-  //   }),
+  'test % operator': (assert) =>
+    Task.spawn(function* () {
+      const a = DB.integer()
+      const b = DB.integer()
+      const c = DB.integer()
+      assert.deepEqual(
+        yield* DB.query(db, {
+          select: { c },
+          where: [
+            { Match: [9, '==', a] },
+            { Match: [4, '==', b] },
+            { Match: [{ n: a, by: b }, '%', c] },
+          ],
+        }),
+        [{ c: 1 }]
+      )
+    }),
+
+  'test ** operator': (assert) =>
+    Task.spawn(function* () {
+      const a = DB.integer()
+      const b = DB.integer()
+      const c = DB.integer()
+      assert.deepEqual(
+        yield* DB.query(db, {
+          select: { c },
+          where: [
+            { Match: [2, '==', a] },
+            { Match: [3, '==', b] },
+            { Match: [{ base: 2, exponent: b }, '**', c] },
+          ],
+        }),
+        [{ c: 8 }]
+      )
+    }),
+
+  'test math/absolute': (assert) =>
+    Task.spawn(function* () {
+      const a = DB.integer()
+      const b = DB.integer()
+      const c = DB.integer()
+      const d = DB.integer()
+      assert.deepEqual(
+        yield* DB.query(db, {
+          select: { c, d },
+          where: [
+            { Match: [2, '==', a] },
+            { Match: [-3, '==', b] },
+            { Match: [a, 'math/absolute', c] },
+            { Match: [b, 'math/absolute', d] },
+          ],
+        }),
+        [{ c: 2, d: 3 }]
+      )
+    }),
+
+  'test text/like': (assert) =>
+    Task.spawn(function* () {
+      const text = DB.string()
+      const out = DB.string()
+      assert.deepEqual(
+        yield* DB.query(db, {
+          select: { out },
+          where: [
+            {
+              Match: ['Hello World', '==', text],
+            },
+            {
+              Match: [{ text, pattern: 'Hello*' }, 'text/like', out],
+            },
+          ],
+        }),
+        [{ out: 'Hello World' }]
+      )
+
+      assert.deepEqual(
+        yield* DB.query(db, {
+          select: { text },
+          where: [
+            {
+              Match: ['Hello World', '==', text],
+            },
+            {
+              Match: [{ text, pattern: 'Hello*' }, 'text/like'],
+            },
+          ],
+        }),
+        [{ text: 'Hello World' }]
+      )
+
+      assert.deepEqual(
+        yield* DB.query(db, {
+          select: { out },
+          where: [
+            {
+              Match: ['Hello World', '==', text],
+            },
+            {
+              Match: [{ text, pattern: 'hello*' }, 'text/like', out],
+            },
+          ],
+        }),
+        []
+      )
+    }),
+
+  'test text/includes': (assert) =>
+    Task.spawn(function* () {
+      const text = DB.string()
+      const out = DB.string()
+      assert.deepEqual(
+        yield* DB.query(db, {
+          select: { out },
+          where: [
+            {
+              Match: ['Hello World', '==', text],
+            },
+            {
+              Match: [{ text, slice: 'Hello' }, 'text/includes', out],
+            },
+          ],
+        }),
+        [{ out: 'Hello World' }]
+      )
+
+      assert.deepEqual(
+        yield* DB.query(db, {
+          select: { text },
+          where: [
+            {
+              Match: ['Hello World', '==', text],
+            },
+            {
+              Match: [{ text, slice: 'World' }, 'text/includes'],
+            },
+          ],
+        }),
+        [{ text: 'Hello World' }]
+      )
+
+      assert.deepEqual(
+        yield* DB.query(db, {
+          select: { out },
+          where: [
+            {
+              Match: ['Hello World', '==', text],
+            },
+            {
+              Match: [{ text, slice: 'hello' }, 'text/includes', out],
+            },
+          ],
+        }),
+        []
+      )
+    }),
 }

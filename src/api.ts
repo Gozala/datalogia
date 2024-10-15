@@ -1,5 +1,6 @@
 import { ByteView, Link as IPLDLink } from 'multiformats'
 import { Task } from './task.js'
+import { Output } from 'entail'
 
 export type { ByteView, Task }
 
@@ -134,6 +135,8 @@ export type Float32 = New<{ Float32: number }>
  */
 export type Bytes = Uint8Array
 
+export type Null = null
+
 /**
  * Type representing an IPLD link.
  */
@@ -151,7 +154,15 @@ export interface Link<
  * We are likely to introduce uint32, int8, uint8 and etc but for now we have
  * chosen to keep things simple.
  */
-export type Constant = boolean | Int32 | Float32 | Int64 | string | Bytes | Link
+export type Constant =
+  | null
+  | boolean
+  | Int32
+  | Float32
+  | Int64
+  | string
+  | Bytes
+  | Link
 
 /**
  * Supported primitive types. Definition utilizes `Phantom` type to describe
@@ -167,6 +178,7 @@ export type Type<T extends Constant = Constant> = Phantom<T> &
     String: Unit
     Bytes: Unit
     Link: Unit
+    Null: Unit
   }>
 
 // /**
@@ -230,8 +242,6 @@ export type Clause = Variant<{
   // pattern match a fact
   Case: Pattern
 
-  Match: Relation
-
   // match aggregated bindings
   Form: MatchForm
   // rule application
@@ -239,20 +249,18 @@ export type Clause = Variant<{
   // assign bindings
   Is: Is
 
-  Perform: Perform<RelationFormula>
+  Match: Formula
 }>
 
-export type Terms = Record<string, Term> | Term[] | Term
+export type Terms = Record<string, Term> | [Term, ...Term[]] | Term
 
 export type Numeric = Int32 | Int64 | Float32
 
-export type Perform<T extends Condition> =
-  | [operator: T['Operator'], input: InferOperand<T['Input']>]
-  | [
-      operator: T['Operator'],
-      input: InferOperand<T['Input']>,
-      output: InferOperand<T['Output']>,
-    ]
+// export type Perform<T extends any> = readonly [
+//   operator: T['Operator'],
+//   input: T['Input'],
+//   output: T['Output'],
+// ]
 
 /**
  * Describes operand of the operator.
@@ -262,85 +270,101 @@ export type Operand =
   | Record<string, Constant>
   | [Constant, ...Constant[]]
 
-export type InferOperand<T extends Operand> = T extends Constant
-  ? Term<T>
-  : {
-      [Key in keyof T]: T[Key] extends infer U ? Term<U & Constant> : never
-    }
+type EphemeralEntity =
+  | Term<Entity>
+  | Record<string, Term>
+  | [Term<Entity>, ...Term<Entity>[]]
 
-// // If record of constants, operand will be a corresponding record of terms.
-// T extends Record<string, Constant>
-//   ? { [Key in keyof T]: Term<T[Key]> }
-//   : // If operand is a tuple of constants, operand is a tuple of corresponding terms.
-//     T extends [infer U extends Constant]
-//     ? [Term<U>]
-//     : T extends [
-//           infer U extends Constant,
-//           ...infer W extends [Constant, ...Constant[]],
-//         ]
-//       ? [Term<U>, ...(InferOperand<W> & Term<Constant>[])]
-//       : T extends Constant
-//         ? Term<T>
-//         : never
+export type InferOperand<T extends Operand, K = T> = K extends Constant
+  ? Term<T & Constant>
+  : K extends Array<infer U extends Constant>
+    ? Term<U>[]
+    : {
+        [Key in keyof K]: T[Key & keyof T] & K[Key] extends infer U extends
+          Constant
+          ? Term<U>
+          : never
+      }
 
-type Condition<
-  Operator = unknown,
-  Input extends Operand = Operand,
-  Output extends Operand = Operand,
-> = {
-  Operator: Operator
-  Input: Input
-  Output: Output
+export interface Operator<
+  Input extends Operand,
+  Relation extends string,
+  Output extends Operand,
+> {
+  relation: Relation
+  (input: Input): Iterable<Output>
 }
 
-type RelationFormula =
-  // | Condition<'string/like', { text: string; pattern: string }, string>
-  | {
-      Operator: 'string/like'
-      Input: { text: string; pattern: string }
-      Output: string
-    }
-  | { Operator: '+'; Input: [number, number]; Output: number }
+export type Relation<
+  Input extends Operand,
+  Operator,
+  Output extends Operand,
+> = readonly [
+  input: InferOperand<Input>,
+  operator: Operator,
+  output?: InferOperand<Output>,
+]
 
-export type Relation =
-  | readonly [Term, 'type', Term]
-  | readonly [Term, '@', Term]
-  | readonly [Term, '==', Term]
-  | [Term, 'string/length', Term]
-  | [Term, 'string/words', Term]
-  | [Term, 'string/lines', Term]
-  | [Term, 'string/case/upper', Term]
-  | [Term, 'string/case/lower', Term]
-  | [Term, 'string/trim', Term]
-  | [Term, 'string/trim/start', Term]
-  | [Term, 'string/trim/end', Term]
-  | [Term, 'string/from/utf8', Term]
-  | [Term, 'string/to/utf8', Term]
-  | [Term[], 'string/concat', Term]
-  | [Term[], '+', Term]
-  | [Term[], '-', Term]
-  | [Term[], '*', Term]
-  | [Term[], '/', Term]
-// | [Term<Numeric>[], '%', Term<Numeric>]
-// | [Term<Numeric>, '**', Term<Numeric>]
-// | [Term<Numeric>, 'math/negate', Term<Numeric>]
-// | [Term<Numeric>, 'math/absolute', Term<Numeric>]
-// | RelationFormula
+export type TypeName =
+  | 'null'
+  | 'boolean'
+  | 'string'
+  | 'bigint'
+  | 'int64'
+  | 'int32'
+  | 'float32'
+  | 'bytes'
+  | 'reference'
+
+export type Tuple<T> = [T, ...T[]]
+
+export type InferYield<T> = T extends Iterable<infer U> ? U : never
+
+export type InferFormula<
+  Operator extends string,
+  Formula extends (input: In) => Iterable<Out>,
+  In extends Operand = Parameters<Formula>[0],
+  Out extends Operand = InferYield<ReturnType<Formula>>,
+> = readonly [
+  input: InferOperand<In>,
+  operator: Operator,
+  output?: InferOperand<Out>,
+]
+
+import * as DataOperators from './formula/data.js'
+import * as TextOperators from './formula/text.js'
+import * as UTF8Operators from './formula/utf8.js'
+import * as MathOperators from './formula/math.js'
+
+export type Formula =
+  | InferFormula<'==', typeof DataOperators.is>
+  | InferFormula<'data/type', typeof DataOperators.type>
+  | InferFormula<'data/refer', typeof DataOperators.refer>
+  | InferFormula<'text/like', typeof TextOperators.like>
+  | InferFormula<'text/length', typeof TextOperators.length>
+  | InferFormula<'text/words', typeof TextOperators.words>
+  | InferFormula<'text/lines', typeof TextOperators.lines>
+  | InferFormula<'text/case/upper', typeof TextOperators.toUpperCase>
+  | InferFormula<'text/case/lower', typeof TextOperators.toUpperCase>
+  | InferFormula<'text/trim', typeof TextOperators.trim>
+  | InferFormula<'text/trim/start', typeof TextOperators.trimStart>
+  | InferFormula<'text/trim/end', typeof TextOperators.trimEnd>
+  | InferFormula<'utf8/to/text', typeof UTF8Operators.fromUTF8>
+  | InferFormula<'text/to/utf8', typeof UTF8Operators.toUTF8>
+  | InferFormula<'text/includes', typeof TextOperators.includes>
+  | InferFormula<'text/slice', typeof TextOperators.slice>
+  | InferFormula<'text/concat', typeof TextOperators.concat>
+  | InferFormula<'+', typeof MathOperators.sum>
+  | InferFormula<'-', typeof MathOperators.subtract>
+  | InferFormula<'*', typeof MathOperators.multiply>
+  | InferFormula<'/', typeof MathOperators.divide>
+  | InferFormula<'%', typeof MathOperators.modulo>
+  | InferFormula<'**', typeof MathOperators.power>
+  | InferFormula<'math/absolute', typeof MathOperators.absolute>
 
 export type InferTerms<T extends Terms> = T extends Term<infer U>
   ? U
-  : T extends Term<infer U>[]
-    ? U[]
-    : T extends Record<string, Term>
-      ? { [Key in keyof T]: T[Key] extends Term<infer U> ? U : never }
-      : never
-
-export type Compare<T extends Constant> =
-  | [Term<T>, '<', Term<T>]
-  | [Term<T>, '>', Term<T>]
-  | [Term<T>, '<=', Term<T>]
-  | [Term<T>, '>=', Term<T>]
-  | [Term<T>, '!=', Term<T>]
+  : { [Key in keyof T]: T[Key] extends Term<infer U> ? U : never }
 
 export type Frame = Record<PropertyKey, Term>
 

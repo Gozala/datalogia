@@ -2,7 +2,7 @@ import * as API from './api.js'
 import * as Variable from './variable.js'
 import * as Bindings from './bindings.js'
 import * as Selector from './selector.js'
-import * as Relation from './relation.js'
+import * as Relation from './formula.js'
 import * as Term from './term.js'
 
 /**

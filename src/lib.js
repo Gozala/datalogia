@@ -8,8 +8,8 @@ import { dependencies } from './dsl.js'
 import * as Constraint from './constraint.js'
 import * as Selector from './selector.js'
 import * as Task from './task.js'
-import * as Relation from './relation.js'
-export * as Variable from './variable.js'
+import * as Formula from './formula.js'
+export * as Var from './variable.js'
 export * from './api.js'
 export * as Memory from './memory.js'
 export * from './dsl.js'
@@ -195,7 +195,7 @@ export const evaluate = function* (db, query, frames = [{}]) {
   } else if (query.Case) {
     return yield* evaluateCase(db, query.Case, frames)
   } else if (query.Match) {
-    return yield* Relation.evaluate(db, query.Match, frames)
+    return yield* Formula.evaluate(db, query.Match, frames)
   } else {
     throw new Error(`Unsupported query kind ${Object.keys(query)[0]}`)
   }
