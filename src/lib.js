@@ -26,11 +26,9 @@ export { Constraint }
 export const { select } = Constraint
 
 /**
- * @template {API.Selector} Selection
+ * @template {API.Selector} Select
  * @param {API.Querier} db
- * @param {object} source
- * @param {Selection} source.select
- * @param {Iterable<API.Clause>} source.where
+ * @param {API.Query<Select>} source
  */
 export const query = (db, source) => Task.perform(evaluateQuery(db, source))
 

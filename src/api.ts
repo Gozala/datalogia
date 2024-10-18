@@ -459,6 +459,20 @@ export interface Bindings extends Record<PropertyKey, Constant> {}
 //   extends Record<PropertyKey, Term | Term[] | Selector | Selector[]> {}
 export type Selector = AggregateSelector | NamedSelector
 
+/**
+ * Where clause describes the conditions that must be satisfied for the query
+ * to return a result.
+ */
+export type Where = Iterable<Clause>
+
+/**
+ * Query that can be evaluated against the database.
+ */
+export type Query<Select extends Selector> = {
+  select: Select
+  where: Where
+}
+
 export type AggregateSelector = [Selector | Term]
 
 export interface NamedSelector extends Record<PropertyKey, Selector | Term> {}
