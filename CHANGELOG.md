@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.2](https://github.com/Gozala/datalogia/compare/v0.8.1...v0.8.2) (2024-10-18)
+
+
+### Bug Fixes
+
+* bump version ([79e3b91](https://github.com/Gozala/datalogia/commit/79e3b91ae0d6d41c20240fb2e0c9617a74cdfb1f))
+* bump version ([#43](https://github.com/Gozala/datalogia/issues/43)) ([cb745ea](https://github.com/Gozala/datalogia/commit/cb745ea74298ff0a01ed58d34f1658ffd076dfff))
+
 ## [0.8.1](https://github.com/Gozala/datalogia/compare/v0.8.0...v0.8.1) (2024-10-18)
 
 
