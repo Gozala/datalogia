@@ -1,6 +1,5 @@
 import { ByteView, Link as IPLDLink } from 'multiformats'
 import { Task } from './task.js'
-import { Output } from 'entail'
 
 export type { ByteView, Task }
 
