@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.3](https://github.com/Gozala/datalogia/compare/v0.8.2...v0.8.3) (2024-10-18)
+
+
+### Bug Fixes
+
+* make type parameter optional ([f7d717a](https://github.com/Gozala/datalogia/commit/f7d717af1270e71bb9b9a7033e97d88e868b1aa4))
+* make type parameter optional ([#45](https://github.com/Gozala/datalogia/issues/45)) ([cc1f84e](https://github.com/Gozala/datalogia/commit/cc1f84e2baca0c6dbdb38ce29625871bdb417e90))
+
 ## [0.8.2](https://github.com/Gozala/datalogia/compare/v0.8.1...v0.8.2) (2024-10-18)
 
 
