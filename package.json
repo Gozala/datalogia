@@ -31,6 +31,16 @@
       "types": "./dist/src/lib.d.ts",
       "import": "./src/lib.js",
       "default": "./src/lib.js"
+    },
+    "./task": {
+      "types": "./dist/src/task.d.ts",
+      "import": "./src/task.js",
+      "default": "./src/task.js"
+    },
+    "./variable": {
+      "types": "./dist/src/variable.d.ts",
+      "import": "./src/variable.js",
+      "default": "./src/variable.js"
     }
   },
   "dependencies": {
