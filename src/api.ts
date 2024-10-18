@@ -468,7 +468,7 @@ export type Where = Iterable<Clause>
 /**
  * Query that can be evaluated against the database.
  */
-export type Query<Select extends Selector> = {
+export type Query<Select extends Selector = Selector> = {
   select: Select
   where: Where
 }
