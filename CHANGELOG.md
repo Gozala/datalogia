@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.1](https://github.com/Gozala/datalogia/compare/v0.8.0...v0.8.1) (2024-10-18)
+
+
+### Bug Fixes
+
+* add task and variable to export maps ([8380ae9](https://github.com/Gozala/datalogia/commit/8380ae9dcca4c8283b5c4459439b4521c3817d22))
+* add task and variable to export maps ([#40](https://github.com/Gozala/datalogia/issues/40)) ([b30d2e8](https://github.com/Gozala/datalogia/commit/b30d2e804c4b48256bcceae76b4d45b004ca0394))
+
 ## [0.8.0](https://github.com/Gozala/datalogia/compare/v0.7.0...v0.8.0) (2024-10-15)
 
 
