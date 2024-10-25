@@ -229,10 +229,11 @@ class Invocation {
 
     this.job = task[Symbol.iterator]()
     /** @type {Promise<Ok>} */
-    this.outcome = new Promise((succeed, fail) => {
-      this.succeed = succeed
-      this.fail = fail
+    this.promise = new Promise((resolve, reject) => {
+      this.resolve = resolve
+      this.reject = reject
     })
+    this.outcome = null
 
     /** @type {Task.Wake} */
     this.group = this
@@ -240,12 +241,38 @@ class Invocation {
     // start a task execution on next tick
     this.resume()
   }
+  /**
+   * @param {Ok} ok
+   */
+  succeed(ok) {
+    this.resolve(ok)
+    if (this.outcome == null) {
+      this.outcome = { ok }
+    }
+  }
+
+  /**
+   * @param {Task.InferError<Command>} error
+   */
+  fail(error) {
+    this.reject(error)
+    if (this.outcome == null) {
+      this.outcome = { error }
+    }
+  }
 
   /**
    * @returns {Task.Step<Ok, Command>}
    */
   next() {
-    const { job, queue } = this
+    const { job, queue, outcome } = this
+    if (outcome) {
+      if (outcome.ok) {
+        return { done: true, value: outcome.ok }
+      } else {
+        throw outcome.error
+      }
+    }
     const command = queue.shift()
     if (!command) {
       return job.next()
@@ -302,7 +329,7 @@ class Invocation {
           throw new RangeError('Invalid command')
         }
       } catch (error) {
-        return this.fail(error)
+        return this.fail(/** @type {Task.InferError<Command>} */ (error))
       }
     }
   }
@@ -311,19 +338,19 @@ class Invocation {
    * @type {Promise<Ok>['then']}
    */
   then(resolve, reject) {
-    return this.outcome.then(resolve, reject)
+    return this.promise.then(resolve, reject)
   }
   /**
    * @type {Promise<Ok>['catch']}
    */
   catch(reject) {
-    return this.outcome.catch(reject)
+    return this.promise.catch(reject)
   }
   /**
    * @type {Promise<Ok>['finally']}
    */
   finally(onFinally) {
-    return this.outcome.finally(onFinally)
+    return this.promise.finally(onFinally)
   }
 
   [Symbol.toStringTag] = 'TaskInvocation'
