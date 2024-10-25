@@ -119,6 +119,21 @@ export const fail = function* (error) {
 }
 
 /**
+ * @template Ok
+ * @template {globalThis.Error} Fail
+ * @template {Task.Suspend|Task.Join|Task.Throw<Fail>} Command
+ * @param {Task.Task<Ok, Fail, Command>} task
+ * @returns {Task.Task<Task.Result<Ok, Task.InferError<Command>>, never>}
+ */
+export function* result(task) {
+  try {
+    return { ok: yield* /** @type {Task.Task<Ok>} */ (task) }
+  } catch (error) {
+    return { error: /** @type {Task.InferError<Command>} */ (error) }
+  }
+}
+
+/**
  * Spawns a concurrent task and returns a
  *
  * @template Ok
@@ -197,6 +212,15 @@ class Continue {
  */
 class Invocation {
   /**
+   * @template Ok
+   * @template {globalThis.Error} Fail
+   * @template {Task.Suspend|Task.Join|Task.Throw<Fail>} Command=Task.Suspend|Task.Join|Task.Throw<Fail>
+   * @param {Invocation<Ok, Fail, Command>} invocation
+   */
+  static resume(invocation) {
+    invocation.resume()
+  }
+  /**
    * @param {Task.Task<Ok, Fail, Command>} task
    */
   constructor(task) {
@@ -214,7 +238,7 @@ class Invocation {
     this.group = this
 
     // start a task execution on next tick
-    setImmediate(() => this.resume(), null)
+    this.resume()
   }
 
   /**
@@ -363,9 +387,3 @@ export class AbortError extends Error {
   }
   name = /** @type {const} */ ('AbortError')
 }
-
-/** @type {<T>(callback: (context:T) => void, context:T) => unknown} */
-const setImmediate =
-  /* c8 ignore next */
-  /** @type {any}} */ (globalThis).setImmediate ||
-  ((fn, arg) => Promise.resolve(arg).then(fn))
