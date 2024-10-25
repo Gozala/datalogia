@@ -3,7 +3,21 @@ import * as Task from '../src/task.js'
 /**
  * @type {import('entail').Suite}
  */
-export const taskTests = {
+export const testTask = {
+  'test sync': (assert) =>
+    Task.spawn(function* () {
+      /**
+       * @template T
+       * @param {T} x
+       */
+      function* ok(x) {
+        return x
+      }
+
+      const invocation = Task.perform(ok(4))
+      const output = yield* invocation
+      assert.equal(output, 4)
+    }),
   'task sleep can be aborted': async (assert) => {
     const task = Task.perform(Task.sleep(10))
 
