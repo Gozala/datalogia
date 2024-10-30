@@ -100,4 +100,46 @@ export const testAggregate = {
         },
       ])
     }),
+
+  'double aggregate': (assert) =>
+    Task.spawn(function* () {
+      const lib = DB.Link.of({ name: 'datalogia' })
+      const tags = DB.Link.of({ tags: {} })
+      const files = DB.Link.of({ files: {} })
+
+      const db = DB.Memory.create([
+        [lib, 'tags', tags],
+        [tags, '0', 'database'],
+        [tags, '1', 'query'],
+        [tags, '2', 'db'],
+        [lib, 'files', files],
+        [files, '0', 'lib.js'],
+        [files, '1', 'main.js'],
+      ])
+
+      const tag = DB.variable()
+      const file = DB.variable()
+      const _tags = DB.link()
+      const _files = DB.link()
+
+      const match = yield* DB.query(db, {
+        select: {
+          tag: [tag],
+          files: [file],
+        },
+        where: [
+          DB.match([lib, 'tags', _tags]),
+          DB.match([_tags, DB._, tag]),
+          DB.match([lib, 'files', _files]),
+          DB.match([_files, DB._, file]),
+        ],
+      })
+
+      assert.deepEqual(match, [
+        {
+          tag: ['database', 'query', 'db'],
+          files: ['lib.js', 'main.js'],
+        },
+      ])
+    }),
 }

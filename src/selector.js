@@ -4,6 +4,8 @@ import * as Variable from './variable.js'
 import * as Constant from './constant.js'
 import * as Bindings from './bindings.js'
 
+const { Link } = Constant
+
 /**
  * @template {API.Selector} Selector
  * @param {Selector} selector
@@ -14,10 +16,12 @@ import * as Bindings from './bindings.js'
 export const merge = (selector, bindings, base) => {
   if (Array.isArray(selector)) {
     const [term] = selector
-    return /** @type {API.InferBindings<Selector>} */ ([
-      .../** @type {unknown[]} */ (base),
-      Term.is(term) ? Bindings.get(bindings, term) : select(term, bindings),
-    ])
+    const extension = Term.is(term)
+      ? Bindings.get(bindings, term)
+      : select(term, bindings)
+    return /** @type {API.InferBindings<Selector>} */ (
+      add(/** @type {unknown[]} */ (base), extension)
+    )
   } else {
     const entries = []
     for (const [key, term] of Object.entries(selector)) {
@@ -69,6 +73,50 @@ export const select = (selector, bindings) =>
           }
         })
       )
+
+/** @type {WeakMap<unknown[], Set<string>>} */
+const GROUP_MEMBERS = new WeakMap()
+
+/**
+ * @template T
+ * @param {T[]} group
+ * @returns {Set<string>}
+ */
+const membersOf = (group) => {
+  const members = GROUP_MEMBERS.get(group)
+  if (!members) {
+    const members = new Set()
+    for (const member of group) {
+      if (member !== undefined) {
+        const key = Link.of(member).toString()
+        if (!members.has(key)) {
+          members.add(key)
+        }
+      }
+    }
+    GROUP_MEMBERS.set(group, members)
+    return members
+  } else {
+    return members
+  }
+}
+
+/**
+ * @template T
+ * @param {T[]} group
+ * @param {T} member
+ */
+const add = (group, member) => {
+  const members = membersOf(group)
+  if (member !== undefined) {
+    const key = Link.of(member).toString()
+    if (!members.has(key)) {
+      members.add(key)
+      group.push(member)
+    }
+  }
+  return group
+}
 
 /**
  * @template {API.Selector} Selector

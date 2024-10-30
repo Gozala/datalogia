@@ -89,6 +89,8 @@ const toKeys = ([entity, attribute, value]) => [
   toKey([null, attribute, value]),
   // by value
   toKey([null, null, value]),
+  // everything
+  toKey([null, null, null]),
 ]
 
 /**
