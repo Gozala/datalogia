@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.9.1](https://github.com/Gozala/datalogia/compare/v0.9.0...v0.9.1) (2024-10-30)
+
+
+### Bug Fixes
+
+* grouping issue ([ff79595](https://github.com/Gozala/datalogia/commit/ff79595991293a3f568b488377d471d817a0c700))
+* grouping logic ([#53](https://github.com/Gozala/datalogia/issues/53)) ([624fb1d](https://github.com/Gozala/datalogia/commit/624fb1d4eed739c3c3dcda5ae4c6b823feb395b9))
+* query planner ([#51](https://github.com/Gozala/datalogia/issues/51)) ([2e5c77f](https://github.com/Gozala/datalogia/commit/2e5c77fd94cb25121d20fce0f32e57f7d17b3441))
+* rank function ([88bdede](https://github.com/Gozala/datalogia/commit/88bdedee2c6d99f3ff9c7aa509c2896b617a6bb9))
+* ranking algorithm for query planner ([1684cb4](https://github.com/Gozala/datalogia/commit/1684cb45ef972fbf94a93b0468311fadaeae7823))
+
 ## [0.9.0](https://github.com/Gozala/datalogia/compare/v0.8.3...v0.9.0) (2024-10-25)
 
 
