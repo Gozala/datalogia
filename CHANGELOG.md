@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.9.0](https://github.com/Gozala/datalogia/compare/v0.8.3...v0.9.0) (2024-10-25)
+
+
+### Features
+
+* make Task.perform sync ([9f2c091](https://github.com/Gozala/datalogia/commit/9f2c091b54fb071b715c57b37e196bb8cf8cfb3f))
+* task sync execution ([#48](https://github.com/Gozala/datalogia/issues/48)) ([ba2c0fb](https://github.com/Gozala/datalogia/commit/ba2c0fbe2a79cdddcbdb060e624a2e61bea2650f))
+
+
+### Bug Fixes
+
+* failure on sync execution ([c3bf8bb](https://github.com/Gozala/datalogia/commit/c3bf8bbffd6b4a87abcd6b588c3053b49a06f994))
+
 ## [0.8.3](https://github.com/Gozala/datalogia/compare/v0.8.2...v0.8.3) (2024-10-18)
 
 

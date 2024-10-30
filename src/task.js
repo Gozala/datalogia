@@ -119,6 +119,21 @@ export const fail = function* (error) {
 }
 
 /**
+ * @template Ok
+ * @template {globalThis.Error} Fail
+ * @template {Task.Suspend|Task.Join|Task.Throw<Fail>} Command
+ * @param {Task.Task<Ok, Fail, Command>} task
+ * @returns {Task.Task<Task.Result<Ok, Task.InferError<Command>>, never>}
+ */
+export function* result(task) {
+  try {
+    return { ok: yield* /** @type {Task.Task<Ok>} */ (task) }
+  } catch (error) {
+    return { error: /** @type {Task.InferError<Command>} */ (error) }
+  }
+}
+
+/**
  * Spawns a concurrent task and returns a
  *
  * @template Ok
@@ -197,6 +212,15 @@ class Continue {
  */
 class Invocation {
   /**
+   * @template Ok
+   * @template {globalThis.Error} Fail
+   * @template {Task.Suspend|Task.Join|Task.Throw<Fail>} Command=Task.Suspend|Task.Join|Task.Throw<Fail>
+   * @param {Invocation<Ok, Fail, Command>} invocation
+   */
+  static resume(invocation) {
+    invocation.resume()
+  }
+  /**
    * @param {Task.Task<Ok, Fail, Command>} task
    */
   constructor(task) {
@@ -205,23 +229,50 @@ class Invocation {
 
     this.job = task[Symbol.iterator]()
     /** @type {Promise<Ok>} */
-    this.outcome = new Promise((succeed, fail) => {
-      this.succeed = succeed
-      this.fail = fail
+    this.promise = new Promise((resolve, reject) => {
+      this.resolve = resolve
+      this.reject = reject
     })
+    this.outcome = null
 
     /** @type {Task.Wake} */
     this.group = this
 
     // start a task execution on next tick
-    setImmediate(() => this.resume(), null)
+    this.resume()
+  }
+  /**
+   * @param {Ok} ok
+   */
+  succeed(ok) {
+    this.resolve(ok)
+    if (this.outcome == null) {
+      this.outcome = { ok }
+    }
+  }
+
+  /**
+   * @param {Task.InferError<Command>} error
+   */
+  fail(error) {
+    this.reject(error)
+    if (this.outcome == null) {
+      this.outcome = { error }
+    }
   }
 
   /**
    * @returns {Task.Step<Ok, Command>}
    */
   next() {
-    const { job, queue } = this
+    const { job, queue, outcome } = this
+    if (outcome) {
+      if (outcome.ok) {
+        return { done: true, value: outcome.ok }
+      } else {
+        throw outcome.error
+      }
+    }
     const command = queue.shift()
     if (!command) {
       return job.next()
@@ -278,7 +329,7 @@ class Invocation {
           throw new RangeError('Invalid command')
         }
       } catch (error) {
-        return this.fail(error)
+        return this.fail(/** @type {Task.InferError<Command>} */ (error))
       }
     }
   }
@@ -287,19 +338,19 @@ class Invocation {
    * @type {Promise<Ok>['then']}
    */
   then(resolve, reject) {
-    return this.outcome.then(resolve, reject)
+    return this.promise.then(resolve, reject)
   }
   /**
    * @type {Promise<Ok>['catch']}
    */
   catch(reject) {
-    return this.outcome.catch(reject)
+    return this.promise.catch(reject)
   }
   /**
    * @type {Promise<Ok>['finally']}
    */
   finally(onFinally) {
-    return this.outcome.finally(onFinally)
+    return this.promise.finally(onFinally)
   }
 
   [Symbol.toStringTag] = 'TaskInvocation'
@@ -363,9 +414,3 @@ export class AbortError extends Error {
   }
   name = /** @type {const} */ ('AbortError')
 }
-
-/** @type {<T>(callback: (context:T) => void, context:T) => unknown} */
-const setImmediate =
-  /* c8 ignore next */
-  /** @type {any}} */ (globalThis).setImmediate ||
-  ((fn, arg) => Promise.resolve(arg).then(fn))

@@ -49,19 +49,7 @@ export const transact = (db, transaction) =>
  * @returns {Task.Task<API.InferBindings<Selection>[] , Error>}
  */
 function* evaluateQuery(db, { select, where }) {
-  const clauses = []
-
-  // Flatten all the `And` clauses.
-  const stack = [...where]
-  while (stack.length) {
-    const clause = stack[0]
-    stack.shift()
-    if (clause.And) {
-      stack.unshift(...clause.And)
-    } else {
-      clauses.push(clause)
-    }
-  }
+  const conjuncts = [...where]
 
   /**
    * Selected fields may not explicitly appear in the where clause. To
@@ -97,12 +85,12 @@ function* evaluateQuery(db, { select, where }) {
    */
   for (const variable of Selector.variables(select)) {
     for (const clause of dependencies(variable)) {
-      clauses.push(clause)
+      conjuncts.push(clause)
     }
   }
 
   const frames = yield* evaluate(db, {
-    And: clauses.sort(byClause),
+    And: plan(conjuncts),
   })
 
   /** @type {API.InferBindings<Selection>[]} */
@@ -132,42 +120,106 @@ function* evaluateQuery(db, { select, where }) {
 }
 
 /**
+ * This is very naive query planner that does following optimizations:
+ *
+ * 1. It raises all the nested And clause to the top as all the conjuncts are
+ *    logically And joined.
+ * 2. Orders conjuncts so that Case clause with less variables will be on top
+ *    reducing search space for all following conjuncts that share variables.
+ *
+ * @param {API.Clause[]} conjuncts
+ */
+export const plan = (conjuncts) => {
+  const where = []
+  // Raise all the nested `And` clauses to the top.
+  const stack = [...conjuncts]
+  while (stack.length) {
+    const conjunct = stack[0]
+    stack.shift()
+    if (conjunct.And) {
+      stack.unshift(...conjunct.And)
+    } else {
+      where.push(conjunct)
+    }
+  }
+
+  // We rank each conjunct and order by it.
+  return where.sort(compareByRank)
+}
+
+/**
+ * Compares clause by rank by derived rank. Higher rank will end up at the top
+ * of the list and lower rank at the bottom.
+ *
  * @param {API.Clause} operand
  * @param {API.Clause} modifier
  */
 
-const byClause = (operand, modifier) =>
-  rateClause(operand) - rateClause(modifier)
+const compareByRank = (operand, modifier) => rank(operand) - rank(modifier)
 
 /**
+ * Derives rank for the query conjuncts in a following order:
+ *
+ * - Case clause that have 0 variables (If there is no match query will select
+ *   nothing)
+ * - Case clause that have a single variable (This will reduces search space
+ *   for all the following clause that share variable)
+ * - Case clause that have two variables (This will reduce search space for
+ *   all fallowing clause that share variable, but is broader search than
+ *   single variable clause).
+ * - And clause (We should not really encounter this because those would have
+ *   being raised to the top by a {@link plan}).
+ * - Or clause (This is not very intelligent and we should optimize disjuncts
+ *   but keeping it simple for now).
+ * - Match clause (By ranking them lower we ensure that all input variables
+ *   would be bound prior to execution. We should actually check that is the
+ *   case before running, but this is super naive for now).
+ * - Form clause (This is kind of like `Match` that should be deprecated at
+ *   this point, but we'll get there eventually).
+ * - Not clause (We rank it lower as all variables need to be bound before we
+ *   run negation, so we sort it lower to accomplish this).
+ * - Rule clause (Rules are least flashed out and recursive, which is why
+ *   running them when we have more variables bound will reduce a search space).
+ * - Case clause with 3 variables (If we know nothing that is a full DB scan,
+ *   so make it our last resort. This is not correct behavior as we our `Match`
+ *   or `Not` clause may require bindings this would find. We MUST fix this with
+ *   a more intelligent planner)
+ *
  * @param {API.Clause} clause
  */
-const rateClause = (clause) => {
-  let score = 21
+const rank = (clause) => {
   if (clause.Case) {
     const [entity, attribute, value] = clause.Case
-    if (Variable.is(entity)) {
-      score -= 8
+    let rank = 10
+    if (!Variable.is(entity)) {
+      rank -= 4
     }
-    if (Variable.is(attribute)) {
-      score -= 7
+    if (!Variable.is(attribute)) {
+      rank -= 3
     }
-    if (Variable.is(value)) {
-      score -= 6
+    if (!Variable.is(value)) {
+      rank -= 2
     }
+    // If we there are no variables rank is 1
+    // If we have one variable rank will in the range of [3..5]
+    // If we have two variables rank will be [6..9]
+    // If all three are variables we rank it lowest as 12
+    return rank < 10 ? rank : 16
   } else if (clause.And) {
-    score -= 5
+    return 10
   } else if (clause.Or) {
-    score -= 4
+    return 11
+  } else if (clause.Match) {
+    return 12
   } else if (clause.Form) {
-    score -= 3
+    return 13
   } else if (clause.Not) {
-    score -= 2
+    return 14
   } else if (clause.Rule) {
-    score -= 1
+    return 15
+  } else {
+    return 16
   }
-
-  return score
 }
 
 /**
