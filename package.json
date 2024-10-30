@@ -1,6 +1,6 @@
 {
   "name": "datalogia",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "Datalog query engine inspired by Datomic",
   "main": "index.js",
   "type": "module",
