@@ -217,9 +217,9 @@ const rank = (clause) => {
     return 14
   } else if (clause.Rule) {
     return 15
+  } else {
+    return 16
   }
-
-  return rank
 }
 
 /**
