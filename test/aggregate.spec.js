@@ -101,7 +101,7 @@ export const testAggregate = {
       ])
     }),
 
-  'only double aggregate': (assert) =>
+  'double aggregate': (assert) =>
     Task.spawn(function* () {
       const lib = DB.Link.of({ name: 'datalogia' })
       const tags = DB.Link.of({ tags: {} })
