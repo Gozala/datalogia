@@ -10,6 +10,7 @@ export const testImplicit = {
 
     const ucan = DB.link()
     const space = DB.string()
+    const capabilities = DB.link()
     const capability = DB.link()
     const can = DB.string()
     const expiration = DB.integer()
@@ -21,7 +22,8 @@ export const testImplicit = {
         can,
       },
       where: [
-        DB.match([ucan, 'capabilities', capability]),
+        DB.match([ucan, 'capabilities', capabilities]),
+        DB.match([capabilities, DB._, capability]),
         DB.match([capability, 'can', 'upload/add']),
         DB.match([capability, 'with', space]),
         DB.match([capability, 'can', can]),

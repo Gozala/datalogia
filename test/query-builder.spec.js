@@ -14,16 +14,20 @@ export const testQueryBuilder = {
       const upload = DB.link()
       const store = DB.link()
       const space = DB.string()
+      const uploadCapabilities = DB.link()
+      const storeCapabilities = DB.link()
       const uploadAdd = DB.link()
       const storeAdd = DB.link()
 
       return [
         DB.match([upload, 'cid', uploadLink]),
-        DB.match([upload, 'capabilities', uploadAdd]),
+        DB.match([upload, 'capabilities', uploadCapabilities]),
+        DB.match([uploadCapabilities, DB._, uploadAdd]),
         DB.match([uploadAdd, 'can', 'upload/add']),
         DB.match([uploadAdd, 'with', space]),
         DB.match([store, 'cid', storeLink]),
-        DB.match([store, 'capabilities', storeAdd]),
+        DB.match([store, 'capabilities', storeCapabilities]),
+        DB.match([storeCapabilities, DB._, storeAdd]),
         DB.match([storeAdd, 'can', 'store/add']),
         DB.match([storeAdd, 'with', space]),
       ]

@@ -6,41 +6,36 @@ import * as Link from './link.js'
  * @param {API.Instantiation} source
  * @returns {Generator<API.Fact, API.Entity>}
  */
-export const derive = function* (source) {
-  /** @type {Record<string, API.Constant|API.Constant[]>} */
-  const entity = {}
-  /** @type {Array<[API.Attribute, API.Constant]>} */
-  const attributes = []
+export const derive = function* iterate(source) {
+  const entity = Link.of(source)
   for (const [key, value] of Object.entries(source)) {
     switch (typeof value) {
       case 'boolean':
       case 'number':
       case 'bigint':
       case 'string':
-        entity[key] = value
-        attributes.push([key, value])
+        yield [entity, key, value]
         break
       case 'object': {
         if (Constant.is(value)) {
-          entity[key] = value
-          attributes.push([key, value])
+          yield [entity, key, value]
         } else if (Array.isArray(value)) {
-          const values = []
+          let at = 0
+          const array = Link.of(value)
           for (const member of value) {
             if (Constant.is(member)) {
-              attributes.push([key, member])
-              values.push(member)
+              yield [array, `[${at}]`, member]
+              at++
             } else {
-              const entity = yield* derive(member)
-              attributes.push([key, entity])
-              values.push(entity)
+              const element = yield* iterate(member)
+              yield [array, `[${at}]`, element]
+              at++
             }
-            entity[key] = values.sort(Constant.compare)
           }
+          yield [entity, key, array]
         } else {
-          const link = yield* derive(value)
-          entity[key] = link
-          attributes.push([key, link])
+          const object = yield* iterate(value)
+          yield [entity, key, object]
         }
         break
       }
@@ -49,12 +44,7 @@ export const derive = function* (source) {
     }
   }
 
-  const link = Link.of(entity)
-  for (const [attribute, value] of attributes) {
-    yield [link, attribute, value]
-  }
-
-  return link
+  return entity
 }
 
 /**
