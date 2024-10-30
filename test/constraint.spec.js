@@ -13,6 +13,7 @@ const db = DB.Memory.create([
  */
 export const testConstraints = {
   like: async (assert) => {
+    const words = DB.link()
     const word = DB.string()
 
     // assert.deepEqual(
@@ -50,7 +51,11 @@ export const testConstraints = {
         select: {
           word,
         },
-        where: [DB.match([DB._, 'word', word]), DB.like(word, 'Piz_a')],
+        where: [
+          DB.match([DB._, 'word', words]),
+          DB.match([words, DB._, word]),
+          DB.like(word, 'Piz_a'),
+        ],
       }),
       [{ word: 'pizza' }]
     )
@@ -58,13 +63,18 @@ export const testConstraints = {
 
   glob: async (assert) => {
     const word = DB.string()
+    const words = DB.link()
 
     assert.deepEqual(
       await DB.query(db, {
         select: {
           word,
         },
-        where: [DB.match([DB._, 'word', word]), DB.glob(word, 'piz%')],
+        where: [
+          DB.match([DB._, 'word', words]),
+          DB.match([words, DB._, word]),
+          DB.glob(word, 'piz%'),
+        ],
       }),
       [],
       'like pattern does not apply to glob'
@@ -75,7 +85,11 @@ export const testConstraints = {
         select: {
           word,
         },
-        where: [DB.match([DB._, 'word', word]), DB.glob(word, 'piz*')],
+        where: [
+          DB.match([DB._, 'word', words]),
+          DB.match([words, DB._, word]),
+          DB.glob(word, 'piz*'),
+        ],
       }),
       [{ word: 'pizza' }],
       '* matches anything'
@@ -86,7 +100,11 @@ export const testConstraints = {
         select: {
           word,
         },
-        where: [DB.match([DB._, 'word', word]), DB.glob(word, 'Piz*')],
+        where: [
+          DB.match([DB._, 'word', words]),
+          DB.match([words, DB._, word]),
+          DB.glob(word, 'Piz*'),
+        ],
       }),
       [],
       'glob is case sensitive'
@@ -97,7 +115,11 @@ export const testConstraints = {
         select: {
           word,
         },
-        where: [DB.match([DB._, 'word', word]), DB.like(word, 'piz.*')],
+        where: [
+          DB.match([DB._, 'word', words]),
+          DB.match([words, DB._, word]),
+          DB.like(word, 'piz.*'),
+        ],
       }),
       [],
       'does not care about regexp patterns'
@@ -108,7 +130,11 @@ export const testConstraints = {
         select: {
           word,
         },
-        where: [DB.match([DB._, 'word', word]), DB.glob(word, 'piz?a')],
+        where: [
+          DB.match([DB._, 'word', words]),
+          DB.match([words, DB._, word]),
+          DB.glob(word, 'piz?a'),
+        ],
       }),
       [{ word: 'pizza' }],
       'can match single character'
@@ -119,7 +145,11 @@ export const testConstraints = {
         select: {
           word,
         },
-        where: [DB.match([DB._, 'word', word]), DB.glob(word, 'store/*')],
+        where: [
+          DB.match([DB._, 'word', words]),
+          DB.match([words, DB._, word]),
+          DB.glob(word, 'store/*'),
+        ],
       }),
       [{ word: 'store/*' }, { word: 'store/add' }]
     )
@@ -129,7 +159,11 @@ export const testConstraints = {
         select: {
           word,
         },
-        where: [DB.match([DB._, 'word', word]), DB.glob(word, '*')],
+        where: [
+          DB.match([DB._, 'word', words]),
+          DB.match([words, DB._, word]),
+          DB.glob(word, '*'),
+        ],
       }),
       [
         { word: 'pizza' },
@@ -145,7 +179,11 @@ export const testConstraints = {
         select: {
           word,
         },
-        where: [DB.match([DB._, 'word', word]), DB.glob('store/list', word)],
+        where: [
+          DB.match([DB._, 'word', words]),
+          DB.match([words, DB._, word]),
+          DB.glob('store/list', word),
+        ],
       }),
       [{ word: 'store/*' }, { word: '*' }],
       'can use term as pattern'
@@ -156,7 +194,11 @@ export const testConstraints = {
         select: {
           word,
         },
-        where: [DB.match([DB._, 'word', word]), DB.glob(word, '\\*')],
+        where: [
+          DB.match([DB._, 'word', words]),
+          DB.match([words, DB._, word]),
+          DB.glob(word, '\\*'),
+        ],
       }),
       [{ word: '*' }],
       'can escape'

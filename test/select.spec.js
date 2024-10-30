@@ -13,6 +13,7 @@ export const testSelector = {
     const upload = {
       ucan: DB.link(),
       cid: DB.string(),
+      capabilities: DB.link(),
       capability: DB.link(),
       space,
     }
@@ -20,6 +21,7 @@ export const testSelector = {
     const store = {
       ucan: DB.link(),
       cid: DB.string(),
+      capabilities: DB.link(),
       capability: DB.link(),
       space,
     }
@@ -37,12 +39,14 @@ export const testSelector = {
       },
       where: [
         DB.match([upload.ucan, 'cid', upload.cid]),
-        DB.match([upload.ucan, 'capabilities', upload.capability]),
+        DB.match([upload.ucan, 'capabilities', upload.capabilities]),
+        DB.match([upload.capabilities, DB._, upload.capability]),
         DB.match([upload.capability, 'can', 'upload/add']),
         DB.match([upload.capability, 'with', upload.space]),
 
         DB.match([store.ucan, 'cid', store.cid]),
-        DB.match([store.ucan, 'capabilities', store.capability]),
+        DB.match([store.ucan, 'capabilities', store.capabilities]),
+        DB.match([store.capabilities, DB._, store.capability]),
         DB.match([store.capability, 'can', 'store/add']),
         DB.match([store.capability, 'with', store.space]),
       ],
@@ -66,6 +70,7 @@ export const testSelector = {
     const upload = {
       ucan: DB.link(),
       cid: DB.string(),
+      capabilities: DB.link(),
       capability: DB.link(),
       space,
     }
@@ -73,6 +78,7 @@ export const testSelector = {
     const store = {
       ucan: DB.link(),
       cid: DB.string(),
+      capabilities: DB.link(),
       capability: DB.link(),
       space,
     }
@@ -92,12 +98,14 @@ export const testSelector = {
       },
       where: [
         DB.match([upload.ucan, 'cid', upload.cid]),
-        DB.match([upload.ucan, 'capabilities', upload.capability]),
+        DB.match([upload.ucan, 'capabilities', upload.capabilities]),
+        DB.match([upload.capabilities, DB._, upload.capability]),
         DB.match([upload.capability, 'can', 'upload/add']),
         DB.match([upload.capability, 'with', upload.space]),
 
         DB.match([store.ucan, 'cid', store.cid]),
-        DB.match([store.ucan, 'capabilities', store.capability]),
+        DB.match([store.ucan, 'capabilities', store.capabilities]),
+        DB.match([store.capabilities, DB._, store.capability]),
         DB.match([store.capability, 'can', 'store/add']),
         DB.match([store.capability, 'with', store.space]),
       ],
@@ -124,6 +132,7 @@ export const testSelector = {
     const upload = {
       ucan: DB.link(),
       cid: DB.string(),
+      capabilities: DB.link(),
       capability: DB.link(),
       space,
     }
@@ -131,6 +140,7 @@ export const testSelector = {
     const store = {
       ucan: DB.link(),
       cid: DB.string(),
+      capabilities: DB.link(),
       capability: DB.link(),
       space,
     }
@@ -150,12 +160,14 @@ export const testSelector = {
       },
       where: [
         DB.match([upload.ucan, 'cid', upload.cid]),
-        DB.match([upload.ucan, 'capabilities', upload.capability]),
+        DB.match([upload.ucan, 'capabilities', upload.capabilities]),
+        DB.match([upload.capabilities, DB._, upload.capability]),
         DB.match([upload.capability, 'can', 'upload/add']),
         DB.match([upload.capability, 'with', upload.space]),
 
         DB.match([store.ucan, 'cid', store.cid]),
-        DB.match([store.ucan, 'capabilities', store.capability]),
+        DB.match([store.ucan, 'capabilities', store.capabilities]),
+        DB.match([store.capabilities, DB._, store.capability]),
         DB.match([store.capability, 'can', 'store/add']),
         DB.match([store.capability, 'with', store.space]),
       ],

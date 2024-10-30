@@ -194,6 +194,14 @@ class Attribute {
   is(value) {
     return match([this.model.entity, this.model.attribute, value])
   }
+
+  /**
+   * @param {API.Term} term
+   */
+  of(term) {
+    const array = Variable.link()
+    return this.is(array).and(match([array, _, term]))
+  }
   /**
    *
    * @param {API.Term} value

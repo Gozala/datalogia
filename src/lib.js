@@ -203,22 +203,22 @@ const rank = (clause) => {
     // If we there are no variables rank is 1
     // If we have one variable rank will in the range of [3..5]
     // If we have two variables rank will be [6..9]
-    // If all three are variables we rank it lowest as 12
-    return rank < 10 ? rank : 16
+    // If all three are variables we rank it lowest as 10
+    return rank
   } else if (clause.And) {
-    return 10
-  } else if (clause.Or) {
     return 11
-  } else if (clause.Match) {
+  } else if (clause.Or) {
     return 12
-  } else if (clause.Form) {
+  } else if (clause.Match) {
     return 13
-  } else if (clause.Not) {
+  } else if (clause.Form) {
     return 14
-  } else if (clause.Rule) {
+  } else if (clause.Not) {
     return 15
-  } else {
+  } else if (clause.Rule) {
     return 16
+  } else {
+    return 17
   }
 }
 

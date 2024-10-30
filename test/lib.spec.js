@@ -15,6 +15,8 @@ export const testDB = {
     const storeCID = DB.string()
 
     const space = DB.string()
+    const uploadCapabilities = DB.link()
+    const storeCapabilities = DB.link()
     const uploadAdd = DB.link()
     const storeAdd = DB.link()
 
@@ -26,12 +28,14 @@ export const testDB = {
       },
       where: [
         DB.match([uploadUCAN, 'cid', uploadCID]),
-        DB.match([uploadUCAN, 'capabilities', uploadAdd]),
+        DB.match([uploadUCAN, 'capabilities', uploadCapabilities]),
+        DB.match([uploadCapabilities, DB._, uploadAdd]),
         DB.match([uploadAdd, 'can', 'upload/add']),
         DB.match([uploadAdd, 'with', space]),
 
         DB.match([storeUCAN, 'cid', storeCID]),
-        DB.match([storeUCAN, 'capabilities', storeAdd]),
+        DB.match([storeUCAN, 'capabilities', storeCapabilities]),
+        DB.match([storeCapabilities, DB._, storeAdd]),
         DB.match([storeAdd, 'can', 'store/add']),
         DB.match([storeAdd, 'with', space]),
       ],

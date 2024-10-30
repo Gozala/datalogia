@@ -103,8 +103,8 @@ export const testTransact = {
         uploadAdd,
       },
       where: [
-        storeUCAN.att.is(storeAdd),
-        uploadUCAN.att.is(uploadAdd),
+        storeUCAN.att.of(storeAdd),
+        uploadUCAN.att.of(uploadAdd),
         uploadAdd.can.is('upload/add'),
         uploadAdd.with.is(space),
         storeAdd.can.is('store/add'),
