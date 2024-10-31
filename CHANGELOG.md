@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.2](https://github.com/Gozala/datalogia/compare/v0.9.1...v0.9.2) (2024-10-30)
+
+
+### Bug Fixes
+
+* grouping ([#56](https://github.com/Gozala/datalogia/issues/56)) ([58fb806](https://github.com/Gozala/datalogia/commit/58fb806c7959006860a8a1093ce16ae60b257ecf))
+* hopefully fix grouping for real ([8cb6079](https://github.com/Gozala/datalogia/commit/8cb60798c7f0920ce2f4cb0156263651f20fe7a7))
+
 ## [0.9.1](https://github.com/Gozala/datalogia/compare/v0.9.0...v0.9.1) (2024-10-30)
 
 
