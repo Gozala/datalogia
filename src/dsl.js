@@ -89,6 +89,30 @@ export const entity = (schema = /** @type {EntitySchema} */ ({})) => {
 }
 
 /**
+ * @template {Schema} T
+ * @typedef {{[Key in keyof T]: T[Key] extends API.Type<infer U> ? API.Term<U> : never }} InferTerms
+ */
+
+/**
+ * @template {Schema} [RelationSchema={}]
+ * @param {RelationSchema} schema
+ */
+
+export const relation =
+  (schema) =>
+  /**
+   * @param {Partial<InferTerms<RelationSchema>>} terms
+   */
+  (terms = {}) => {
+    const entity = Variable.link()
+    const cases = []
+    for (const [key, type] of entries(schema)) {
+      const value = terms[key] ?? Variable.variable(type)
+      cases.push([entity, key, value])
+    }
+  }
+
+/**
  * @template {Schema} EntitySchema
  * @extends {Schema<T>}
  */
