@@ -9,6 +9,9 @@ import * as Constraint from './constraint.js'
 import * as Selector from './selector.js'
 import * as Task from './task.js'
 import * as Formula from './formula.js'
+import * as Clause from './clause.js'
+import * as Constant from './constant.js'
+
 export * as Var from './variable.js'
 export * from './api.js'
 export * as Memory from './memory.js'
@@ -89,7 +92,7 @@ function* evaluateQuery(db, { select, where }) {
     }
   }
 
-  const frames = yield* evaluate(db, {
+  const frames = yield* evaluate(new LRUCache(db), {
     And: plan(conjuncts),
   })
 
@@ -356,15 +359,18 @@ export const evaluateIs = function* (_, [expect, actual], frames) {
  * @param {Iterable<API.Bindings>} frames
  */
 
-const evaluateCase = function* (db, pattern, frames) {
-  // We collect facts to avoid reaching for the db on each frame.
-  const facts = yield* iterateFacts(db, pattern)
+const evaluateCase = function* (db, pattern, [...frames]) {
   const matches = []
   for (const bindings of frames) {
+    const resolved = Bindings.resolve(bindings, pattern)
+    // Note: We expect that there will be LRUCache wrapping the db
+    // so calling scan over and over again will not actually cause new scans.
+    const facts = yield* iterateFacts(db, resolved)
     for (const fact of facts) {
       matches.push(...matchFact(fact, pattern, bindings))
     }
   }
+
   return matches
 }
 
@@ -468,4 +474,115 @@ const unifyRule = (input, selector, bindings) => {
   }
 
   return { ok: bindings }
+}
+
+/**
+ * Implements a Least Recently Used (LRU) cache for facts with a capacity limit
+ * based on the total number of individual facts cached.
+ */
+class LRUCache {
+  #size
+  /**
+   * @param {API.Querier} source - The underlying data source
+   * @param {number} capacity - Maximum number of individual facts to store in cache
+   */
+  constructor(source, capacity = 10_000) {
+    this.source = source
+    this.capacity = capacity
+    /** @type {Map<string, API.Datum[]>} */
+    this.cache = new Map()
+    /** @type {number} */
+    this.#size = 0
+  }
+
+  /**
+   * Generates a cache key from the selector components
+   * @param {API.FactsSelector} selector
+   * @returns {string}
+   */
+  static identify({ entity, attribute, value }) {
+    return `${entity ? `e:${Constant.toString(entity)}` : ``}${
+      attribute ? `a:${Constant.toString(attribute)}` : ``
+    }${value ? `v:${Constant.toString(value)}` : ``}`
+  }
+
+  /**
+   * Updates the LRU order by removing and re-adding the key
+   * @param {string} key
+   */
+  touch(key) {
+    const value = this.cache.get(key)
+    if (value) {
+      this.cache.delete(key)
+      this.cache.set(key, value)
+    }
+  }
+
+  /**
+   * Evicts entries until cache is under capacity
+   */
+  evict() {
+    for (const [key, facts] of this.cache) {
+      if (this.#size <= this.capacity) {
+        break
+      }
+      this.#size -= facts.length
+      this.cache.delete(key)
+    }
+  }
+
+  /**
+   * @param {API.FactsSelector} selector
+   */
+  *scan({ entity, attribute, value }) {
+    const key = LRUCache.identify({ entity, attribute, value })
+
+    // Check if we have it in cache
+    const cached = this.cache.get(key)
+    if (cached) {
+      this.touch(key)
+      return cached
+    }
+
+    // Fetch from source
+    const facts = yield* this.source.scan({ entity, attribute, value })
+
+    // Skip caching if the result set is larger than our total capacity
+    if (facts.length > this.capacity) {
+      return facts
+    }
+
+    // Add to cache
+    this.cache.set(key, facts)
+    this.#size += facts.length
+
+    // Evict if we're over capacity
+    if (this.#size > this.capacity) {
+      this.evict()
+    }
+
+    return facts
+  }
+
+  /**
+   * Clears the cache
+   */
+  clear() {
+    this.cache.clear()
+    this.#size = 0
+  }
+
+  /**
+   * Returns current number of cached facts
+   */
+  size() {
+    return this.#size
+  }
+
+  /**
+   * Returns the number of cached queries
+   */
+  get count() {
+    return this.cache.size
+  }
 }
