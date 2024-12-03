@@ -100,3 +100,44 @@ const extendIfPossible = (variable, value, bindings) => {
     return { ok: { ...bindings, [Variable.toKey(variable)]: value } }
   }
 }
+
+/**
+ * Attempts to resolve given patter from the given bindings. Either returns
+ * the resolved pattern if any of the variables are in the bindings or
+ * returns the original pattern.
+ *
+ * @param {API.Bindings} bindings
+ * @param {API.Pattern} pattern
+ * @returns {API.Pattern}
+ */
+export const resolve = (bindings, pattern) => {
+  const [entity, attribute, value] = pattern
+  const resolved = []
+  if (Variable.is(entity)) {
+    resolved.push(get(bindings, entity) ?? entity)
+  } else {
+    resolved.push(entity)
+  }
+
+  if (Variable.is(attribute)) {
+    resolved.push(get(bindings, attribute) ?? attribute)
+  } else {
+    resolved.push(attribute)
+  }
+
+  if (Variable.is(value)) {
+    resolved.push(get(bindings, value) ?? value)
+  } else {
+    resolved.push(value)
+  }
+
+  if (
+    resolved[0] !== entity ||
+    resolved[1] !== attribute ||
+    resolved[2] !== value
+  ) {
+    return /** @type {API.Pattern & any} */ (resolved)
+  } else {
+    return pattern
+  }
+}
